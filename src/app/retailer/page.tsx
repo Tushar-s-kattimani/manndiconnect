@@ -58,21 +58,21 @@ export default function RetailerPage() {
   const { toast } = useToast();
 
   const marketplaceQuery = useMemoFirebase(() => {
-    if (!firestore || !user || !profile || profile.role !== 'retailer') return null;
-    // Fetch ALL available listings across all farmers
+    if (!firestore || !user) return null;
+    // Fetch ALL available listings across all farmers for ALL retailers
     return query(
       collection(firestore, 'listings'), 
       where('status', '==', 'Available')
     );
-  }, [firestore, user?.uid, profile?.role]);
+  }, [firestore, user?.uid]);
 
   const myOrdersQuery = useMemoFirebase(() => {
-    if (!firestore || !user || !profile || profile.role !== 'retailer') return null;
+    if (!firestore || !user) return null;
     return query(
       collection(firestore, 'orders'),
       where('buyerId', '==', user.uid)
     );
-  }, [firestore, user?.uid, profile?.role]);
+  }, [firestore, user?.uid]);
 
   const { data: listings, isLoading: isDataLoading } = useCollection(marketplaceQuery);
   const { data: orders, isLoading: isOrdersLoading } = useCollection(myOrdersQuery);

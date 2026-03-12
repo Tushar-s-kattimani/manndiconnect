@@ -39,35 +39,35 @@ export default function TransporterPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  // Query for Available Jobs (Not yet assigned)
+  // Query for Available Jobs (Not yet assigned) - Global for all transporters
   const availableJobsQuery = useMemoFirebase(() => {
-    if (!firestore || !user || !profile || profile.role !== 'transporter') return null;
+    if (!firestore || !user) return null;
     return query(
       collection(firestore, 'orders'), 
       where('status', '==', 'Pending Transport'),
       where('transporterId', '==', null)
     );
-  }, [firestore, user?.uid, profile?.role]);
+  }, [firestore, user?.uid]);
 
-  // Query for My Active Jobs (Pickup + Confirmed)
+  // Query for My Active Jobs
   const activeJobsQuery = useMemoFirebase(() => {
-    if (!firestore || !user || !profile || profile.role !== 'transporter') return null;
+    if (!firestore || !user) return null;
     return query(
       collection(firestore, 'orders'), 
       where('transporterId', '==', user.uid),
       where('status', 'in', ['Accepted', 'Confirmed'])
     );
-  }, [firestore, user?.uid, profile?.role]);
+  }, [firestore, user?.uid]);
 
   // Query for Delivered
   const deliveredJobsQuery = useMemoFirebase(() => {
-    if (!firestore || !user || !profile || profile.role !== 'transporter') return null;
+    if (!firestore || !user) return null;
     return query(
       collection(firestore, 'orders'), 
       where('transporterId', '==', user.uid),
       where('status', '==', 'Delivered')
     );
-  }, [firestore, user?.uid, profile?.role]);
+  }, [firestore, user?.uid]);
 
   const { data: availableJobs, isLoading: isAvailableLoading } = useCollection(availableJobsQuery);
   const { data: activeJobs, isLoading: isActiveLoading } = useCollection(activeJobsQuery);
@@ -114,38 +114,6 @@ export default function TransporterPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-10 w-10 text-primary animate-spin" />
-      </div>
-    );
-  }
-
-  if (!user.emailVerified) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <Navbar />
-        <main className="flex-1 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md border-2 shadow-xl">
-            <CardHeader className="text-center space-y-4">
-              <div className="mx-auto bg-destructive/10 w-20 h-20 rounded-full flex items-center justify-center">
-                <Mail className="h-10 w-10 text-destructive" />
-              </div>
-              <div>
-                <CardTitle className="text-2xl font-black">Verify Your Email</CardTitle>
-                <CardDescription className="text-base mt-2">
-                  Access to the Transporter Dashboard is restricted until your email is verified.
-                </CardDescription>
-              </div>
-            </CardHeader>
-            <CardFooter className="flex flex-col gap-3">
-              <Button onClick={handleRefresh} className="w-full h-12 font-bold text-lg gap-2" disabled={isRefreshing}>
-                {isRefreshing ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCcw className="h-5 w-5" />}
-                I Have Verified
-              </Button>
-              <Button variant="ghost" onClick={logout} className="w-full font-bold text-muted-foreground">
-                Logout
-              </Button>
-            </CardFooter>
-          </Card>
-        </main>
       </div>
     );
   }
