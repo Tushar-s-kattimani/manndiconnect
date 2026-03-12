@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useEffect } from 'react';
@@ -77,7 +76,7 @@ export default function Home() {
       </main>
 
       <footer className="mt-8 text-center text-xs text-muted-foreground">
-        &copy; 2024 FarmLink. All rights reserved.
+        &copy; 2026 FarmLink. All rights reserved.
       </footer>
     </div>
   );
