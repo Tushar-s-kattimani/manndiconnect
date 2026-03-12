@@ -21,16 +21,15 @@ import {
   Mail, 
   RefreshCcw, 
   Loader2, 
-  Image as ImageIcon, 
+  Sprout, 
   BarChart3, 
   LayoutGrid,
-  Lock
+  Lock,
+  Leaf
 } from 'lucide-react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import {
   ChartContainer,
   ChartTooltip,
@@ -38,6 +37,13 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+
+// Helper for crop symbols
+const CropSymbol = ({ name, className }: { name: string; className?: string }) => {
+  const n = name.toLowerCase();
+  if (n.includes('leaf') || n.includes('spinach') || n.includes('coriander')) return <Leaf className={className} />;
+  return <Sprout className={className} />;
+};
 
 export default function FarmerPage() {
   const { t } = useLanguage();
@@ -53,17 +59,6 @@ export default function FarmerPage() {
     quantity: '',
     price: '',
   });
-
-  // Dynamic image matching based on crop name
-  const matchedImage = useMemo(() => {
-    if (!formData.cropName.trim()) return null;
-    const search = formData.cropName.toLowerCase();
-    return PlaceHolderImages.find(img => 
-      search.includes(img.id) || 
-      img.imageHint.toLowerCase().includes(search) ||
-      search.includes(img.imageHint.split(' ')[0])
-    ) || PlaceHolderImages.find(img => img.id === 'generic-crop');
-  }, [formData.cropName]);
 
   // Query for user's specific listings
   const myListingsQuery = useMemoFirebase(() => {
@@ -185,21 +180,9 @@ export default function FarmerPage() {
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4 py-4">
                 <div className="grid gap-2">
-                  <div className="relative w-full aspect-video bg-muted rounded-xl flex flex-col items-center justify-center border-2 overflow-hidden transition-all group">
-                    {matchedImage ? (
-                      <Image 
-                        src={matchedImage.imageUrl}
-                        alt="Crop Preview"
-                        fill
-                        className="object-cover"
-                        data-ai-hint={matchedImage.imageHint}
-                      />
-                    ) : (
-                      <>
-                        <ImageIcon className="h-8 w-8 text-muted-foreground group-hover:text-primary mb-2" />
-                        <span className="text-xs font-medium text-muted-foreground">Type a crop name for preview</span>
-                      </>
-                    )}
+                  <div className="relative w-full aspect-video bg-primary/5 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-primary/20 overflow-hidden transition-all group">
+                    <CropSymbol name={formData.cropName} className="h-16 w-16 text-primary mb-2 opacity-50 group-hover:opacity-100 transition-opacity" />
+                    <span className="text-sm font-bold text-primary capitalize">{formData.cropName || 'Crop Symbol Preview'}</span>
                   </div>
                 </div>
                 <div className="grid gap-2">
@@ -277,14 +260,10 @@ export default function FarmerPage() {
                 ) : (
                   listings.map((listing: any) => (
                     <Card key={listing.id} className="overflow-hidden border-2 hover:border-primary transition-all">
-                      <div className="relative h-48 w-full bg-muted">
-                        <Image 
-                            src={`https://picsum.photos/seed/${listing.id}/600/400`}
-                            alt={listing.cropName}
-                            fill
-                            className="object-cover"
-                            data-ai-hint="crop harvest"
-                        />
+                      <div className="relative h-32 w-full bg-primary/5 flex items-center justify-center">
+                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-primary/10">
+                          <CropSymbol name={listing.cropName} className="h-12 w-12 text-primary" />
+                        </div>
                         <Badge className="absolute top-4 right-4 bg-primary">
                           <CheckCircle2 className="h-3 w-3 mr-1" /> Verified
                         </Badge>

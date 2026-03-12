@@ -8,11 +8,30 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Search, Filter, IndianRupee, Weight, MapPin, Star, Mail, RefreshCcw, Loader2, Lock } from 'lucide-react';
-import Image from 'next/image';
+import { 
+  Search, 
+  Filter, 
+  IndianRupee, 
+  Weight, 
+  MapPin, 
+  Star, 
+  Mail, 
+  RefreshCcw, 
+  Loader2, 
+  Lock, 
+  Sprout,
+  Leaf 
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
+
+// Helper for crop symbols
+const CropSymbol = ({ name, className }: { name: string; className?: string }) => {
+  const n = name.toLowerCase();
+  if (n.includes('leaf') || n.includes('spinach') || n.includes('coriander')) return <Leaf className={className} />;
+  return <Sprout className={className} />;
+};
 
 export default function RetailerPage() {
   const { t } = useLanguage();
@@ -140,16 +159,12 @@ export default function RetailerPage() {
             ) : (
               filteredListings.map((listing: any) => (
                 <Card key={listing.id} className="overflow-hidden group hover:shadow-xl transition-all border-2">
-                  <div className="relative h-48 w-full bg-muted">
-                    <Image 
-                        src={`https://picsum.photos/seed/${listing.id}/600/400`}
-                        alt={listing.cropName}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform"
-                        data-ai-hint="fresh vegetables"
-                    />
+                  <div className="relative h-32 w-full bg-primary/5 flex items-center justify-center">
+                    <div className="bg-white p-4 rounded-2xl shadow-sm border border-primary/10 group-hover:scale-110 transition-transform">
+                      <CropSymbol name={listing.cropName} className="h-10 w-10 text-primary" />
+                    </div>
                     <div className="absolute bottom-2 left-2 flex gap-1">
-                      <div className="bg-white/90 px-2 py-1 rounded-md text-xs font-bold flex items-center">
+                      <div className="bg-white/90 px-2 py-1 rounded-md text-xs font-bold flex items-center shadow-sm">
                         <Star className="h-3 w-3 text-yellow-500 fill-yellow-500 mr-1" />
                         4.5
                       </div>
