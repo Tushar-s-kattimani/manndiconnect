@@ -1,0 +1,29 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "wheat-field",
+      "description": "Golden wheat field ready for harvest",
+      "imageUrl": "https://picsum.photos/seed/farmlink1/800/600",
+      "imageHint": "wheat harvest"
+    },
+    {
+      "id": "tomatoes",
+      "description": "Fresh red tomatoes in a wooden crate",
+      "imageUrl": "https://picsum.photos/seed/farmlink2/800/600",
+      "imageHint": "fresh tomatoes"
+    },
+    {
+      "id": "farmer-market",
+      "description": "Busy rural market scene",
+      "imageUrl": "https://picsum.photos/seed/farmlink3/800/600",
+      "imageHint": "farmer market"
+    },
+    {
+      "id": "truck-transport",
+      "description": "Truck moving agricultural goods",
+      "imageUrl": "https://picsum.photos/seed/farmlink4/800/600",
+      "imageHint": "truck transport"
+    }
+  ]
+}
