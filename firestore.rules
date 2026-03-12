@@ -30,7 +30,7 @@ service cloud.firestore {
     match /listings/{listingId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
-      // Allow update for authenticated users to facilitate 'Sold' status changes
+      // Allow update for authenticated users to facilitate 'Sold' status changes by retailers
       allow update: if isSignedIn();
       allow delete: if isSignedIn() && resource.data.farmerId == request.auth.uid;
     }
