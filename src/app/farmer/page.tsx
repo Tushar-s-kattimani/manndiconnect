@@ -32,16 +32,10 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
+import { collection, query, where } from 'firebase/firestore';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
-// Helper for crop symbols
 const CropSymbol = ({ name, className }: { name: string; className?: string }) => {
   const n = name.toLowerCase();
   if (n.includes('leaf') || n.includes('spinach') || n.includes('coriander')) return <Leaf className={className} />;
@@ -50,7 +44,7 @@ const CropSymbol = ({ name, className }: { name: string; className?: string }) =
 
 export default function FarmerPage() {
   const { t } = useLanguage();
-  const { user, isUserLoading, refreshProfile, logout } = useAuth();
+  const { user, profile, isUserLoading, refreshProfile, logout } = useAuth();
   const { addListing } = useOffline();
   const firestore = useFirestore();
   const router = useRouter();
@@ -63,22 +57,19 @@ export default function FarmerPage() {
     price: '',
   });
 
-  // Query for user's specific listings
   const myListingsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user || !profile || profile.role !== 'farmer') return null;
     return query(collection(firestore, 'listings'), where('farmerId', '==', user.uid));
-  }, [firestore, user?.uid]);
+  }, [firestore, user?.uid, profile?.role]);
 
-  // Query for orders where this user is the farmer
   const myOrdersQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user || !profile || profile.role !== 'farmer') return null;
     return query(collection(firestore, 'orders'), where('farmerId', '==', user.uid));
-  }, [firestore, user?.uid]);
+  }, [firestore, user?.uid, profile?.role]);
 
   const { data: listings, isLoading: isDataLoading } = useCollection(myListingsQuery);
   const { data: orders, isLoading: isOrdersLoading } = useCollection(myOrdersQuery);
 
-  // Chart Configuration
   const chartConfig = {
     quantity: {
       label: "Stock (Kg)",
@@ -106,7 +97,7 @@ export default function FarmerPage() {
     setIsRefreshing(false);
   };
 
-  if (isUserLoading || !user) {
+  if (isUserLoading || !user || !profile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-10 w-10 text-primary animate-spin" />
@@ -114,7 +105,6 @@ export default function FarmerPage() {
     );
   }
 
-  // Verification Gate
   if (!user.emailVerified) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -122,36 +112,16 @@ export default function FarmerPage() {
         <main className="flex-1 flex items-center justify-center p-4">
           <Card className="w-full max-w-md border-2 shadow-xl">
             <CardHeader className="text-center space-y-4">
-              <div className="mx-auto bg-destructive/10 w-20 h-20 rounded-full flex items-center justify-center">
-                <Mail className="h-10 w-10 text-destructive" />
-              </div>
-              <div>
-                <CardTitle className="text-2xl font-black">Verify Your Email</CardTitle>
-                <CardDescription className="text-base mt-2">
-                  Access to the Farmer Dashboard is restricted until your email is verified.
-                  Please check your inbox: <strong className="text-foreground">{user.email}</strong>
-                </CardDescription>
-              </div>
+              <Mail className="mx-auto h-10 w-10 text-destructive" />
+              <CardTitle className="text-2xl font-black">Verify Your Email</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="p-4 bg-muted rounded-xl flex items-start gap-3">
-                <Lock className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <p className="text-sm text-muted-foreground">
-                  Verification ensures the security of our agricultural marketplace and prevents fraudulent listings.
-                </p>
-              </div>
-            </CardContent>
             <CardFooter className="flex flex-col gap-3">
-              <Button 
-                onClick={handleRefresh} 
-                className="w-full h-12 font-bold text-lg gap-2"
-                disabled={isRefreshing}
-              >
+              <Button onClick={handleRefresh} className="w-full h-12 font-bold text-lg gap-2" disabled={isRefreshing}>
                 {isRefreshing ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCcw className="h-5 w-5" />}
                 I Have Verified
               </Button>
               <Button variant="ghost" onClick={logout} className="w-full font-bold text-muted-foreground">
-                Logout and Try Different Account
+                Logout
               </Button>
             </CardFooter>
           </Card>
@@ -172,72 +142,20 @@ export default function FarmerPage() {
       <Navbar />
       <main className="container mx-auto px-4 py-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-black font-headline text-primary">Farmer Dashboard</h1>
-            <p className="text-muted-foreground">Managing harvest for: <span className="font-bold">{user.email}</span></p>
-          </div>
-
+          <h1 className="text-3xl font-black font-headline text-primary">Farmer Dashboard</h1>
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
             <DialogTrigger asChild>
               <Button className="h-12 px-6 rounded-full shadow-lg gap-2 text-lg font-bold">
-                <Plus className="h-6 w-6" />
-                {t('add_crop')}
+                <Plus className="h-6 w-6" /> {t('add_crop')}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>{t('add_crop')}</DialogTitle>
-              </DialogHeader>
+              <DialogHeader><DialogTitle>{t('add_crop')}</DialogTitle></DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4 py-4">
-                <div className="grid gap-2">
-                  <div className="relative w-full aspect-video bg-primary/5 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-primary/20 overflow-hidden transition-all group">
-                    <CropSymbol name={formData.cropName} className="h-16 w-16 text-primary mb-2 opacity-50 group-hover:opacity-100 transition-opacity" />
-                    <span className="text-sm font-bold text-primary capitalize">{formData.cropName || 'Crop Symbol Preview'}</span>
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <label className="text-sm font-bold">{t('crop_name')}</label>
-                  <input 
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={formData.cropName}
-                    onChange={(e) => setFormData({...formData, cropName: e.target.value})}
-                    placeholder="e.g. Wheat, Tomato" 
-                    required 
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <label className="text-sm font-bold">{t('quantity')} (Kg)</label>
-                    <div className="relative">
-                      <Weight className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        className="pl-9"
-                        type="number" 
-                        value={formData.quantity}
-                        onChange={(e) => setFormData({...formData, quantity: e.target.value})}
-                        placeholder="0.00" 
-                        required 
-                      />
-                    </div>
-                  </div>
-                  <div className="grid gap-2">
-                    <label className="text-sm font-bold">Price / Kg</label>
-                    <div className="relative">
-                      <IndianRupee className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        className="pl-9"
-                        type="number" 
-                        value={formData.price}
-                        onChange={(e) => setFormData({...formData, price: e.target.value})}
-                        placeholder="0.00" 
-                        required 
-                      />
-                    </div>
-                  </div>
-                </div>
-                <Button type="submit" className="w-full h-12 text-lg font-bold">
-                  {t('submit')}
-                </Button>
+                <Input value={formData.cropName} onChange={(e) => setFormData({...formData, cropName: e.target.value})} placeholder="Crop Name" required />
+                <Input type="number" value={formData.quantity} onChange={(e) => setFormData({...formData, quantity: e.target.value})} placeholder="Quantity (Kg)" required />
+                <Input type="number" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} placeholder="Price / Kg" required />
+                <Button type="submit" className="w-full h-12 text-lg font-bold">Publish Listing</Button>
               </form>
             </DialogContent>
           </Dialog>
@@ -245,198 +163,57 @@ export default function FarmerPage() {
 
         <Tabs defaultValue="grid" className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-8 max-w-[600px]">
-            <TabsTrigger value="grid" className="gap-2 font-bold">
-              <LayoutGrid className="h-4 w-4" /> Listings
-            </TabsTrigger>
-            <TabsTrigger value="orders" className="gap-2 font-bold">
-              <Package className="h-4 w-4" /> Orders
-            </TabsTrigger>
-            <TabsTrigger value="stats" className="gap-2 font-bold">
-              <BarChart3 className="h-4 w-4" /> Analytics
-            </TabsTrigger>
+            <TabsTrigger value="grid" className="gap-2 font-bold"><LayoutGrid className="h-4 w-4" /> Listings</TabsTrigger>
+            <TabsTrigger value="orders" className="gap-2 font-bold"><Package className="h-4 w-4" /> Orders</TabsTrigger>
+            <TabsTrigger value="stats" className="gap-2 font-bold"><BarChart3 className="h-4 w-4" /> Analytics</TabsTrigger>
           </TabsList>
 
           <TabsContent value="grid">
-            {isDataLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-10 w-10 text-primary animate-spin" />
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {!listings || listings.length === 0 ? (
-                  <div className="col-span-full py-20 text-center space-y-4">
-                    <div className="bg-muted w-20 h-20 rounded-full flex items-center justify-center mx-auto">
-                      <History className="h-10 w-10 text-muted-foreground" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {listings?.map((listing: any) => (
+                <Card key={listing.id} className="border-2">
+                  <CardHeader>
+                    <div className="flex justify-between items-center">
+                      <CardTitle>{listing.cropName}</CardTitle>
+                      <span className="text-primary font-bold">₹{listing.pricePerUnit}/kg</span>
                     </div>
-                    <h3 className="text-xl font-bold">No Listings Found</h3>
-                    <p className="text-muted-foreground">Start by adding your first crop harvest!</p>
-                  </div>
-                ) : (
-                  listings.map((listing: any) => (
-                    <Card key={listing.id} className="overflow-hidden border-2 hover:border-primary transition-all">
-                      <div className="relative h-32 w-full bg-primary/5 flex items-center justify-center">
-                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-primary/10">
-                          <CropSymbol name={listing.cropName} className="h-12 w-12 text-primary" />
-                        </div>
-                        <Badge className="absolute top-4 right-4 bg-primary">
-                          <CheckCircle2 className="h-3 w-3 mr-1" /> Active
-                        </Badge>
-                      </div>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="flex justify-between items-center text-xl">
-                          <span>{listing.cropName}</span>
-                          <span className="text-primary font-bold">₹{listing.pricePerUnit}/kg</span>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center text-sm text-muted-foreground mb-4">
-                          <Weight className="h-4 w-4 mr-1" />
-                          <span>{listing.quantity} Kg Total Stock</span>
-                        </div>
-                        <Button variant="outline" className="w-full font-bold">Manage Listing</Button>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
-              </div>
-            )}
+                  </CardHeader>
+                  <CardContent>
+                    <Badge variant="outline">{listing.quantity} Kg Stock</Badge>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </TabsContent>
 
           <TabsContent value="orders">
-            {isOrdersLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-10 w-10 text-primary animate-spin" />
-              </div>
-            ) : (
-              <div className="space-y-4 max-w-5xl">
-                {!orders || orders.length === 0 ? (
-                  <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed flex flex-col items-center gap-4">
-                    <div className="bg-muted p-4 rounded-full text-muted-foreground"><ShoppingBag className="h-10 w-10" /></div>
-                    <div>
-                      <h3 className="text-xl font-bold">No Incoming Orders</h3>
-                      <p className="text-muted-foreground">Orders will appear here when retailers purchase your crops.</p>
-                    </div>
-                  </div>
-                ) : (
-                  orders.map((order: any) => (
-                    <Card key={order.id} className="border-2 hover:border-primary transition-all overflow-hidden bg-white shadow-sm">
-                      <div className="flex flex-col md:flex-row">
-                        <div className="bg-primary/5 p-6 flex flex-col items-center justify-center md:border-r border-border min-w-[140px]">
-                           <div className="bg-white p-3 rounded-2xl shadow-sm mb-3">
-                             <ShoppingBag className="h-8 w-8 text-primary" />
-                           </div>
-                           <Badge variant="secondary" className="font-bold uppercase tracking-wider text-[10px]">
-                            {order.status}
-                           </Badge>
-                        </div>
-                        <div className="flex-1 p-6">
-                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                            <div className="space-y-3">
-                              <div className="flex items-center gap-2">
-                                <h3 className="font-black text-xl">{order.cropName}</h3>
-                                <Badge variant="outline" className="font-bold">{order.quantityOrdered} Kg</Badge>
-                              </div>
-                              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-                                <span className="flex items-center font-medium text-muted-foreground">
-                                  <Mail className="h-4 w-4 mr-1.5 text-primary" /> 
-                                  Buyer: {order.buyerEmail?.split('@')[0]}
-                                </span>
-                                <span className="flex items-center font-medium text-muted-foreground">
-                                  <Clock className="h-4 w-4 mr-1.5 text-primary" /> 
-                                  {new Date(order.orderDate).toLocaleDateString()}
-                                </span>
-                                <span className="flex items-center font-black text-primary text-base">
-                                  <IndianRupee className="h-4 w-4 mr-1" /> 
-                                  {order.totalPrice?.toLocaleString()} Total
-                                </span>
-                              </div>
-                              {order.paymentMethod && (
-                                <div className="text-xs font-bold uppercase text-muted-foreground bg-muted inline-block px-2 py-1 rounded">
-                                  Payment: {order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Paid Online'}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex gap-2">
-                               <Button variant="outline" className="font-bold border-2">View Details</Button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </Card>
-                  ))
-                )}
-              </div>
-            )}
+            <div className="space-y-4">
+              {orders?.map((order: any) => (
+                <Card key={order.id} className="border-2">
+                  <CardHeader>
+                    <CardTitle className="text-xl font-black">{order.cropName}</CardTitle>
+                    <CardDescription>{order.quantityOrdered} Kg from {order.buyerEmail?.split('@')[0]}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="font-bold text-primary">Total Revenue: ₹{order.totalPrice?.toLocaleString()}</p>
+                    <Badge variant="secondary">{order.status}</Badge>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </TabsContent>
 
           <TabsContent value="stats">
-            <div className="grid grid-cols-1 gap-6">
-              <Card className="border-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5 text-primary" />
-                    Inventory Overview
-                  </CardTitle>
-                  <CardDescription>
-                    Total quantity (Kg) of each crop currently listed in the marketplace.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {listings && listings.length > 0 ? (
-                    <div className="h-[400px] w-full mt-4">
-                      <ChartContainer config={chartConfig} className="h-full w-full">
-                        <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-                          <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                          <XAxis 
-                            dataKey="cropName" 
-                            tickLine={false} 
-                            tickMargin={10} 
-                            axisLine={false}
-                            angle={-45}
-                            textAnchor="end"
-                          />
-                          <YAxis 
-                            tickLine={false} 
-                            axisLine={false} 
-                            tickMargin={10}
-                          />
-                          <ChartTooltip content={<ChartTooltipContent />} />
-                          <Bar 
-                            dataKey="quantity" 
-                            fill="var(--color-quantity)" 
-                            radius={[4, 4, 0, 0]} 
-                            barSize={40}
-                          />
-                        </BarChart>
-                      </ChartContainer>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
-                      <p>Add some listings to view analytics.</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Card className="border-2 bg-primary/5">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground uppercase">Total Listings</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-black text-primary">{listings?.length || 0}</div>
-                  </CardContent>
-                </Card>
-                <Card className="border-2 bg-secondary/10">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground uppercase">Incoming Orders</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-black text-primary">{orders?.length || 0}</div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+            <Card className="border-2">
+              <CardHeader><CardTitle>Inventory Overview</CardTitle></CardHeader>
+              <CardContent>
+                <div className="h-[300px] w-full mt-4">
+                  <ChartContainer config={chartConfig}>
+                    <BarChart data={chartData}><XAxis dataKey="cropName" /><YAxis /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="quantity" fill="var(--color-quantity)" /></BarChart>
+                  </ChartContainer>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>

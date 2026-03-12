@@ -23,7 +23,8 @@ import {
   ClipboardList,
   CheckCircle2,
   Package,
-  Navigation
+  Navigation,
+  Clock
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
@@ -41,7 +42,7 @@ export default function TransporterPage() {
 
   // Query for Available Jobs (Not yet assigned)
   const availableJobsQuery = useMemoFirebase(() => {
-    if (!firestore || !user || profile?.role !== 'transporter') return null;
+    if (!firestore || !user || !profile || profile.role !== 'transporter') return null;
     return query(
       collection(firestore, 'orders'), 
       where('status', '==', 'Pending Transport'),
@@ -51,33 +52,33 @@ export default function TransporterPage() {
 
   // Query for Pending Pickup (Assigned but not confirmed)
   const pendingJobsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user || !profile || profile.role !== 'transporter') return null;
     return query(
       collection(firestore, 'orders'), 
       where('transporterId', '==', user.uid),
       where('status', '==', 'Accepted')
     );
-  }, [firestore, user?.uid]);
+  }, [firestore, user?.uid, profile?.role]);
 
   // Query for Confirmed (In Transit)
   const confirmedJobsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user || !profile || profile.role !== 'transporter') return null;
     return query(
       collection(firestore, 'orders'), 
       where('transporterId', '==', user.uid),
       where('status', '==', 'Confirmed')
     );
-  }, [firestore, user?.uid]);
+  }, [firestore, user?.uid, profile?.role]);
 
   // Query for Delivered
   const deliveredJobsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user || !profile || profile.role !== 'transporter') return null;
     return query(
       collection(firestore, 'orders'), 
       where('transporterId', '==', user.uid),
       where('status', '==', 'Delivered')
     );
-  }, [firestore, user?.uid]);
+  }, [firestore, user?.uid, profile?.role]);
 
   const { data: availableJobs, isLoading: isAvailableLoading } = useCollection(availableJobsQuery);
   const { data: pendingJobs, isLoading: isPendingLoading } = useCollection(pendingJobsQuery);
@@ -100,7 +101,6 @@ export default function TransporterPage() {
       updatedAt: serverTimestamp()
     };
 
-    // If accepting for the first time, attach transporter info
     if (newStatus === 'Accepted') {
       updateData.transporterId = user.uid;
       updateData.transporterEmail = user.email;
@@ -130,7 +130,6 @@ export default function TransporterPage() {
     );
   }
 
-  // Verification Gate
   if (!user.emailVerified) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -149,25 +148,13 @@ export default function TransporterPage() {
                 </CardDescription>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="p-4 bg-muted rounded-xl flex items-start gap-3">
-                <Lock className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <p className="text-sm text-muted-foreground">
-                  Verification ensures our logistics network remains reliable and secure for all parties.
-                </p>
-              </div>
-            </CardContent>
             <CardFooter className="flex flex-col gap-3">
-              <Button 
-                onClick={handleRefresh} 
-                className="w-full h-12 font-bold text-lg gap-2"
-                disabled={isRefreshing}
-              >
+              <Button onClick={handleRefresh} className="w-full h-12 font-bold text-lg gap-2" disabled={isRefreshing}>
                 {isRefreshing ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCcw className="h-5 w-5" />}
                 I Have Verified
               </Button>
               <Button variant="ghost" onClick={logout} className="w-full font-bold text-muted-foreground">
-                Logout and Try Different Account
+                Logout
               </Button>
             </CardFooter>
           </Card>
@@ -253,7 +240,7 @@ export default function TransporterPage() {
                    Mark Delivered
                  </Button>
                )}
-               <Button variant="outline" className="flex-1 md:w-40 font-bold border-2">View Details</Button>
+               <Button variant="outline" className="flex-1 md:w-40 font-bold border-2">Details</Button>
             </div>
           </div>
         </div>

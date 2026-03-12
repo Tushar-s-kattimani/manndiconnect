@@ -5,82 +5,65 @@ service cloud.firestore {
 
     /**
      * FarmLink Security Rules
-     * 
-     * Philosophy: Prototyping Mode.
-     * This ruleset enforces strict authorization based on user roles and document ownership 
-     * while remaining flexible on the specific data schema to allow for rapid iteration.
+     * Optimized for prototyping and clear party-based access.
      */
 
     // --- Helper Functions ---
 
-    /** @description Checks if the request is from an authenticated user. */
     function isSignedIn() {
       return request.auth != null;
-    }
-
-    /** @description Checks if the authenticated user matches the provided userId. */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
     }
 
     // --- Collection Rules ---
 
     /**
-     * @description Rules for user profiles. Access restricted to the profile owner.
+     * @description Rules for user profiles.
      */
     match /users/{userId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if resource != null && isOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if resource != null && isOwner(userId);
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
 
       match /syncQueue/{queueEntryId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId);
-        allow update: if resource != null && isOwner(userId);
-        allow delete: if resource != null && isOwner(userId);
+        allow read, write: if isSignedIn() && request.auth.uid == userId;
       }
     }
 
     /**
-     * @description Marketplace crop listings. Publicly readable by users; writable only by the creating farmer.
+     * @description Marketplace crop listings. 
+     * Publicly readable by all authenticated users.
+     * Writable only by the owner (farmer).
      */
     match /listings/{listingId} {
-      allow get, list: if isSignedIn();
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.farmerId == request.auth.uid;
-      allow update: if resource != null && request.auth.uid == resource.data.farmerId && request.resource.data.farmerId == resource.data.farmerId;
-      allow delete: if resource != null && request.auth.uid == resource.data.farmerId;
+      allow update: if isSignedIn() && resource.data.farmerId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.farmerId == request.auth.uid;
     }
 
     /**
-     * @description Shared order documents. Accessible by the specific farmer, buyer, and transporter involved.
-     * Rules updated for robustness and clear query-level list support.
+     * @description Order documents.
+     * Readable by any party involved in the transaction (Farmer, Buyer, or Transporter)
+     * OR if the order is seeking a transporter (transporterId is null).
      */
     match /orders/{orderId} {
       allow read: if isSignedIn() && (
         resource.data.farmerId == request.auth.uid || 
         resource.data.buyerId == request.auth.uid || 
-        resource.data.get('transporterId', null) == request.auth.uid ||
-        resource.data.get('transporterId', null) == null
+        resource.data.transporterId == request.auth.uid ||
+        resource.data.transporterId == null
       );
       
-      allow create: if isSignedIn() && (
-        request.resource.data.buyerId == request.auth.uid || 
-        request.resource.data.farmerId == request.auth.uid
-      );
+      allow create: if isSignedIn();
       
-      allow update: if resource != null && (
+      allow update: if isSignedIn() && (
         resource.data.farmerId == request.auth.uid || 
         resource.data.buyerId == request.auth.uid || 
-        resource.data.get('transporterId', null) == request.auth.uid ||
-        resource.data.get('transporterId', null) == null
-      ) && 
-      request.resource.data.buyerId == resource.data.buyerId && 
-      request.resource.data.farmerId == resource.data.farmerId;
+        resource.data.transporterId == request.auth.uid ||
+        resource.data.transporterId == null
+      );
 
-      allow delete: if resource != null && (
-        request.auth.uid == resource.data.buyerId || 
-        request.auth.uid == resource.data.farmerId
+      allow delete: if isSignedIn() && (
+        resource.data.farmerId == request.auth.uid || 
+        resource.data.buyerId == request.auth.uid
       );
     }
   }
