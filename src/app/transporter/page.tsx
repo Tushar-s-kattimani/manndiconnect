@@ -34,7 +34,8 @@ import {
   ShoppingBag,
   Phone,
   Calendar,
-  Package
+  Package,
+  RefreshCcw
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
@@ -46,39 +47,19 @@ export default function TransporterPage() {
   const { user, profile, isUserLoading } = useAuth();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [rejectedIds, setRejectedIds] = useState<string[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
 
-  const availableJobsQuery = useMemoFirebase(() => {
+  // Broad query to avoid indexing issues during development
+  // We filter status in-memory for maximum reliability
+  const allOrdersQuery = useMemoFirebase(() => {
     if (!firestore || !user || profile?.role !== 'transporter') return null;
-    return query(
-      collection(firestore, 'orders'), 
-      where('status', '==', 'Pending Transport')
-    );
+    return collection(firestore, 'orders');
   }, [firestore, user?.uid, profile?.role]);
 
-  const activeJobsQuery = useMemoFirebase(() => {
-    if (!firestore || !user || profile?.role !== 'transporter') return null;
-    return query(
-      collection(firestore, 'orders'), 
-      where('transporterId', '==', user.uid),
-      where('status', 'in', ['Accepted', 'Confirmed'])
-    );
-  }, [firestore, user?.uid, profile?.role]);
-
-  const deliveredJobsQuery = useMemoFirebase(() => {
-    if (!firestore || !user || profile?.role !== 'transporter') return null;
-    return query(
-      collection(firestore, 'orders'), 
-      where('transporterId', '==', user.uid),
-      where('status', '==', 'Delivered')
-    );
-  }, [firestore, user?.uid, profile?.role]);
-
-  const { data: availableJobs, isLoading: isAvailableLoading } = useCollection(availableJobsQuery);
-  const { data: activeJobs, isLoading: isActiveLoading } = useCollection(activeJobsQuery);
-  const { data: deliveredJobs, isLoading: isDeliveredLoading } = useCollection(deliveredJobsQuery);
+  const { data: allOrders, isLoading: isOrdersLoading } = useCollection(allOrdersQuery);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -133,13 +114,30 @@ export default function TransporterPage() {
     setTimeout(() => setUpdatingId(null), 800);
   };
 
-  const displayAvailable = useMemo(() => {
-    if (!availableJobs) return [];
-    return availableJobs.filter(job => 
+  const availableJobs = useMemo(() => {
+    if (!allOrders) return [];
+    return allOrders.filter(job => 
+      job.status === 'Pending Transport' && 
       !rejectedIds.includes(job.id) && 
-      (job.transporterId === null || job.transporterId === undefined)
+      (!job.transporterId || job.transporterId === null)
     );
-  }, [availableJobs, rejectedIds]);
+  }, [allOrders, rejectedIds]);
+
+  const activeJobs = useMemo(() => {
+    if (!allOrders || !user) return [];
+    return allOrders.filter(job => 
+      job.transporterId === user.uid && 
+      (job.status === 'Accepted' || job.status === 'Confirmed')
+    );
+  }, [allOrders, user?.uid]);
+
+  const deliveredJobs = useMemo(() => {
+    if (!allOrders || !user) return [];
+    return allOrders.filter(job => 
+      job.transporterId === user.uid && 
+      job.status === 'Delivered'
+    );
+  }, [allOrders, user?.uid]);
 
   if (isUserLoading || !user || !profile) {
     return (
@@ -241,19 +239,21 @@ export default function TransporterPage() {
             <h1 className="text-3xl font-black font-headline text-primary tracking-tight">Logistics Center</h1>
             <p className="text-muted-foreground font-medium">Verified Transporter Portal</p>
           </div>
-          <div className="bg-primary/5 px-4 py-2 rounded-xl border-2 border-primary/10">
-            <span className="text-xs font-black uppercase tracking-widest text-primary block">Completed Earnings</span>
-            <span className="text-xl font-black">₹{deliveredJobs?.reduce((acc: any, curr: any) => acc + (curr.totalPrice || 0), 0).toLocaleString()}</span>
+          <div className="flex items-center gap-4">
+            <div className="bg-primary/5 px-4 py-2 rounded-xl border-2 border-primary/10">
+              <span className="text-xs font-black uppercase tracking-widest text-primary block">Completed Earnings</span>
+              <span className="text-xl font-black">₹{deliveredJobs?.reduce((acc: any, curr: any) => acc + (curr.totalPrice || 0), 0).toLocaleString()}</span>
+            </div>
           </div>
         </div>
 
         <Tabs defaultValue="available" className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-8 max-w-2xl">
             <TabsTrigger value="available" className="gap-2 font-bold">
-              <ClipboardList className="h-4 w-4" /> Available Jobs
+              <ClipboardList className="h-4 w-4" /> Available Jobs ({availableJobs.length})
             </TabsTrigger>
             <TabsTrigger value="active" className="gap-2 font-bold">
-              <Navigation className="h-4 w-4" /> My Active Jobs
+              <Navigation className="h-4 w-4" /> My Active Jobs ({activeJobs.length})
             </TabsTrigger>
             <TabsTrigger value="delivered" className="gap-2 font-bold">
               <CheckCircle2 className="h-4 w-4" /> History
@@ -261,11 +261,11 @@ export default function TransporterPage() {
           </TabsList>
 
           <TabsContent value="available">
-            {isAvailableLoading ? (
+            {isOrdersLoading ? (
               <div className="flex items-center justify-center py-20"><Loader2 className="h-10 w-10 text-primary animate-spin" /></div>
             ) : (
               <div className="max-w-7xl">
-                {displayAvailable.length === 0 ? (
+                {availableJobs.length === 0 ? (
                   <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed">
                     <h3 className="text-xl font-bold">No Jobs Available</h3>
                     <p className="text-muted-foreground">When retailers request transport, they will appear here in the table below.</p>
@@ -284,7 +284,7 @@ export default function TransporterPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {displayAvailable.map((job: any) => (
+                        {availableJobs.map((job: any) => (
                           <TableRow key={job.id} className="hover:bg-primary/5 transition-colors">
                             <TableCell>
                               <div className="flex flex-col">
@@ -356,36 +356,28 @@ export default function TransporterPage() {
           </TabsContent>
 
           <TabsContent value="active">
-            {isActiveLoading ? (
-              <div className="flex items-center justify-center py-20"><Loader2 className="h-10 w-10 text-primary animate-spin" /></div>
-            ) : (
-              <div className="max-w-5xl">
-                {!activeJobs || activeJobs.length === 0 ? (
-                  <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed">
-                    <h3 className="text-xl font-bold">No Active Jobs</h3>
-                    <p className="text-muted-foreground">Accept an available job from the table to see it here.</p>
-                  </div>
-                ) : (
-                  activeJobs.map((job: any) => <JobCard key={job.id} job={job} />)
-                )}
-              </div>
-            )}
+            <div className="max-w-5xl">
+              {activeJobs.length === 0 ? (
+                <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed">
+                  <h3 className="text-xl font-bold">No Active Jobs</h3>
+                  <p className="text-muted-foreground">Accept an available job from the table to see it here.</p>
+                </div>
+              ) : (
+                activeJobs.map((job: any) => <JobCard key={job.id} job={job} />)
+              )}
+            </div>
           </TabsContent>
 
           <TabsContent value="delivered">
-            {isDeliveredLoading ? (
-              <div className="flex items-center justify-center py-20"><Loader2 className="h-10 w-10 text-primary animate-spin" /></div>
-            ) : (
-              <div className="max-w-5xl">
-                {!deliveredJobs || deliveredJobs.length === 0 ? (
-                  <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed">
-                    <h3 className="text-xl font-bold">No Completed Jobs</h3>
-                  </div>
-                ) : (
-                  deliveredJobs.map((job: any) => <JobCard key={job.id} job={job} />)
-                )}
-              </div>
-            )}
+            <div className="max-w-5xl">
+              {deliveredJobs.length === 0 ? (
+                <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed">
+                  <h3 className="text-xl font-bold">No Completed Jobs</h3>
+                </div>
+              ) : (
+                deliveredJobs.map((job: any) => <JobCard key={job.id} job={job} />)
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </main>
