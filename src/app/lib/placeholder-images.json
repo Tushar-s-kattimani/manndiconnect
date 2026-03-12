@@ -2,28 +2,52 @@
 {
   "placeholderImages": [
     {
-      "id": "wheat-field",
+      "id": "wheat",
       "description": "Golden wheat field ready for harvest",
-      "imageUrl": "https://picsum.photos/seed/farmlink1/800/600",
+      "imageUrl": "https://picsum.photos/seed/wheat1/800/600",
       "imageHint": "wheat harvest"
     },
     {
       "id": "tomatoes",
       "description": "Fresh red tomatoes in a wooden crate",
-      "imageUrl": "https://picsum.photos/seed/farmlink2/800/600",
+      "imageUrl": "https://picsum.photos/seed/tomato1/800/600",
       "imageHint": "fresh tomatoes"
     },
     {
-      "id": "farmer-market",
-      "description": "Busy rural market scene",
-      "imageUrl": "https://picsum.photos/seed/farmlink3/800/600",
-      "imageHint": "farmer market"
+      "id": "rice",
+      "description": "Green rice paddy fields",
+      "imageUrl": "https://picsum.photos/seed/rice1/800/600",
+      "imageHint": "rice farm"
     },
     {
-      "id": "truck-transport",
-      "description": "Truck moving agricultural goods",
-      "imageUrl": "https://picsum.photos/seed/farmlink4/800/600",
-      "imageHint": "truck transport"
+      "id": "potatoes",
+      "description": "Harvested potatoes in a sack",
+      "imageUrl": "https://picsum.photos/seed/potato1/800/600",
+      "imageHint": "potato harvest"
+    },
+    {
+      "id": "corn",
+      "description": "Fresh corn on the cob",
+      "imageUrl": "https://picsum.photos/seed/corn1/800/600",
+      "imageHint": "corn field"
+    },
+    {
+      "id": "onions",
+      "description": "Red and white onions",
+      "imageUrl": "https://picsum.photos/seed/onion1/800/600",
+      "imageHint": "fresh onions"
+    },
+    {
+      "id": "carrots",
+      "description": "Freshly pulled carrots",
+      "imageUrl": "https://picsum.photos/seed/carrot1/800/600",
+      "imageHint": "fresh carrots"
+    },
+    {
+      "id": "generic-crop",
+      "description": "A variety of fresh vegetables",
+      "imageUrl": "https://picsum.photos/seed/crops1/800/600",
+      "imageHint": "fresh vegetables"
     }
   ]
 }

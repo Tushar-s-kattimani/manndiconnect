@@ -1,7 +1,7 @@
 
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '@/components/LanguageContext';
 import { useAuth } from '@/components/AuthContext';
 import { useOffline } from '@/components/OfflineProvider';
@@ -12,15 +12,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Plus, IndianRupee, Weight, CheckCircle2, History, Camera, Mail, RefreshCcw, Loader2 } from 'lucide-react';
+import { Plus, IndianRupee, Weight, CheckCircle2, History, Camera, Mail, RefreshCcw, Loader2, Image as ImageIcon } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default function FarmerPage() {
   const { t } = useLanguage();
-  const { user, profile, isUserLoading, refreshProfile } = useAuth();
+  const { user, isUserLoading, refreshProfile } = useAuth();
   const { addListing } = useOffline();
   const firestore = useFirestore();
   const router = useRouter();
@@ -31,6 +32,17 @@ export default function FarmerPage() {
     quantity: '',
     price: '',
   });
+
+  // Dynamic image matching based on crop name
+  const matchedImage = useMemo(() => {
+    if (!formData.cropName.trim()) return null;
+    const search = formData.cropName.toLowerCase();
+    return PlaceHolderImages.find(img => 
+      search.includes(img.id) || 
+      img.imageHint.toLowerCase().includes(search) ||
+      search.includes(img.imageHint.split(' ')[0])
+    ) || PlaceHolderImages.find(img => img.id === 'generic-crop');
+  }, [formData.cropName]);
 
   // Query for user's specific listings
   const myListingsQuery = useMemoFirebase(() => {
@@ -94,9 +106,21 @@ export default function FarmerPage() {
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4 py-4">
                 <div className="grid gap-2">
-                  <div className="w-full aspect-video bg-muted rounded-xl flex flex-col items-center justify-center border-2 border-dashed hover:border-primary transition-colors cursor-pointer group">
-                    <Camera className="h-8 w-8 text-muted-foreground group-hover:text-primary mb-2" />
-                    <span className="text-sm font-medium text-muted-foreground group-hover:text-primary">Click to add photo</span>
+                  <div className="relative w-full aspect-video bg-muted rounded-xl flex flex-col items-center justify-center border-2 overflow-hidden transition-all group">
+                    {matchedImage ? (
+                      <Image 
+                        src={matchedImage.imageUrl}
+                        alt="Crop Preview"
+                        fill
+                        className="object-cover"
+                        data-ai-hint={matchedImage.imageHint}
+                      />
+                    ) : (
+                      <>
+                        <ImageIcon className="h-8 w-8 text-muted-foreground group-hover:text-primary mb-2" />
+                        <span className="text-xs font-medium text-muted-foreground">Type a crop name for preview</span>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className="grid gap-2">
