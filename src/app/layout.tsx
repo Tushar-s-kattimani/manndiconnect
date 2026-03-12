@@ -8,8 +8,8 @@ import {Toaster} from '@/components/ui/toaster';
 import {FirebaseClientProvider} from '@/firebase';
 
 export const metadata: Metadata = {
-  title: 'FarmLink - Connecting Farmers & Retailers',
-  description: 'Empowering rural agriculture with offline-first technology.',
+  title: 'MandiConnect - Connecting Farmers & Retailers',
+  description: 'Empowering rural agriculture with direct market access.',
 };
 
 export default function RootLayout({

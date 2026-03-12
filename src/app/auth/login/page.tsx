@@ -157,7 +157,7 @@ function LoginContent() {
             {role} Portal
           </CardTitle>
           <CardDescription>
-            Enter your credentials to access your FarmLink account
+            Enter your credentials to access your MandiConnect account
           </CardDescription>
         </CardHeader>
         <CardContent>

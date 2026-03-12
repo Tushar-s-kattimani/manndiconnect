@@ -57,7 +57,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     setIsOffline(!navigator.onLine);
 
     if (user) {
-      const saved = localStorage.getItem(`farmlink_unsynced_${user.uid}`);
+      const saved = localStorage.getItem(`mandiconnect_unsynced_${user.uid}`);
       if (saved) setUnsyncedListings(JSON.parse(saved));
     }
 
@@ -89,7 +89,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     if (isOffline) {
       const updated = [...unsyncedListings, { ...newListing, status: 'pending' }];
       setUnsyncedListings(updated);
-      localStorage.setItem(`farmlink_unsynced_${user.uid}`, JSON.stringify(updated));
+      localStorage.setItem(`mandiconnect_unsynced_${user.uid}`, JSON.stringify(updated));
       toast({
         title: "Saved Offline",
         description: "Listing will sync when you are back online.",
@@ -124,7 +124,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       }
       
       setUnsyncedListings([]);
-      localStorage.removeItem(`farmlink_unsynced_${user.uid}`);
+      localStorage.removeItem(`mandiconnect_unsynced_${user.uid}`);
       
       toast({
         title: "Sync Successful",

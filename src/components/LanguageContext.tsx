@@ -13,8 +13,8 @@ interface Translations {
 }
 
 export const translations: Translations = {
-  app_name: { en: 'FarmLink', hi: 'फार्मलिंक' },
-  welcome: { en: 'Welcome to FarmLink', hi: 'फार्मलिंक में आपका स्वागत है' },
+  app_name: { en: 'MandiConnect', hi: 'मंडीकनेक्ट' },
+  welcome: { en: 'Welcome to MandiConnect', hi: 'मंडीकनेक्ट में आपका स्वागत है' },
   select_role: { en: 'I am a...', hi: 'मैं एक हूँ...' },
   farmer: { en: 'Farmer', hi: 'किसान' },
   retailer: { en: 'Retailer', hi: 'रिटेलर' },
