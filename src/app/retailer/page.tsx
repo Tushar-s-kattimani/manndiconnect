@@ -8,6 +8,9 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { 
   Search, 
   Filter, 
@@ -21,7 +24,9 @@ import {
   Lock, 
   Sprout,
   Leaf,
-  Truck
+  Truck,
+  CreditCard,
+  Banknote
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
@@ -41,6 +46,13 @@ export default function RetailerPage() {
   const [search, setSearch] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [requestingTransportId, setRequestingTransportId] = useState<string | null>(null);
+  
+  // Buy Now States
+  const [isBuyNowOpen, setIsBuyNowOpen] = useState(false);
+  const [selectedListing, setSelectedListing] = useState<any>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'online'>('cod');
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
@@ -65,6 +77,46 @@ export default function RetailerPage() {
     setIsRefreshing(false);
   };
 
+  const handleBuyNowClick = (listing: any) => {
+    setSelectedListing(listing);
+    setIsBuyNowOpen(true);
+  };
+
+  const handlePlaceOrder = () => {
+    if (!user || !firestore || !selectedListing) return;
+    
+    setIsPlacingOrder(true);
+    const orderId = `order_${Math.random().toString(36).substr(2, 9)}`;
+    const orderData = {
+      id: orderId,
+      listingId: selectedListing.id,
+      farmerId: selectedListing.farmerId,
+      buyerId: user.uid,
+      buyerEmail: user.email,
+      cropName: selectedListing.cropName,
+      quantityOrdered: selectedListing.quantity,
+      agreedPricePerUnit: selectedListing.pricePerUnit,
+      totalPrice: selectedListing.quantity * selectedListing.pricePerUnit,
+      status: paymentMethod === 'online' ? 'Paid' : 'Pending',
+      paymentMethod: paymentMethod,
+      orderDate: new Date().toISOString(),
+      updatedAt: serverTimestamp(),
+      transporterId: null
+    };
+
+    const docRef = doc(firestore, 'orders', orderId);
+    setDocumentNonBlocking(docRef, orderData, { merge: true });
+
+    toast({
+      title: "Order Placed",
+      description: `Your order for ${selectedListing.cropName} (${paymentMethod === 'cod' ? 'Cash on Delivery' : 'Paid Online'}) has been placed.`,
+    });
+
+    setIsBuyNowOpen(false);
+    setIsPlacingOrder(false);
+    setSelectedListing(null);
+  };
+
   const handleRequestTransport = (listing: any) => {
     if (!user || !firestore) return;
     
@@ -84,7 +136,7 @@ export default function RetailerPage() {
       status: 'Pending Transport',
       orderDate: new Date().toISOString(),
       updatedAt: serverTimestamp(),
-      transporterId: null // Explicitly null allows transporters to query/find this job
+      transporterId: null 
     };
 
     const docRef = doc(firestore, 'orders', orderId);
@@ -95,7 +147,6 @@ export default function RetailerPage() {
       description: `Transport request for ${listing.cropName} has been sent to the network.`,
     });
 
-    // Simulate small delay for UI feedback
     setTimeout(() => setRequestingTransportId(null), 1000);
   };
 
@@ -234,7 +285,7 @@ export default function RetailerPage() {
                     </div>
                   </CardContent>
                   <CardFooter className="p-4 pt-0 flex flex-col gap-2">
-                    <Button className="w-full font-bold">Buy Now</Button>
+                    <Button onClick={() => handleBuyNowClick(listing)} className="w-full font-bold">Buy Now</Button>
                     <Button 
                       variant="outline" 
                       className="w-full font-bold gap-2 text-primary border-primary/20 hover:bg-primary/5"
@@ -254,6 +305,79 @@ export default function RetailerPage() {
             )}
           </div>
         )}
+
+        {/* Buy Now Dialog */}
+        <Dialog open={isBuyNowOpen} onOpenChange={setIsBuyNowOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Complete Your Purchase</DialogTitle>
+              <DialogDescription>
+                Choose your preferred payment method for {selectedListing?.cropName}.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-6">
+              <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex justify-between items-center">
+                <div>
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Amount</p>
+                  <p className="text-2xl font-black text-primary">₹{(selectedListing?.quantity * selectedListing?.pricePerUnit).toLocaleString()}</p>
+                </div>
+                <div className="text-right text-sm">
+                  <p>{selectedListing?.quantity} Kg x ₹{selectedListing?.pricePerUnit}</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-base font-bold">Payment Method</Label>
+                <RadioGroup 
+                  defaultValue="cod" 
+                  value={paymentMethod} 
+                  onValueChange={(v) => setPaymentMethod(v as 'cod' | 'online')}
+                  className="grid gap-4"
+                >
+                  <div>
+                    <RadioGroupItem value="cod" id="cod" className="peer sr-only" />
+                    <Label
+                      htmlFor="cod"
+                      className="flex items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary transition-all cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Banknote className="h-5 w-5 text-primary" />
+                        <div>
+                          <p className="font-bold">Cash on Delivery</p>
+                          <p className="text-xs text-muted-foreground">Pay when you receive the crops</p>
+                        </div>
+                      </div>
+                    </Label>
+                  </div>
+                  <div>
+                    <RadioGroupItem value="online" id="online" className="peer sr-only" />
+                    <Label
+                      htmlFor="online"
+                      className="flex items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary transition-all cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <CreditCard className="h-5 w-5 text-primary" />
+                        <div>
+                          <p className="font-bold">Pay Online</p>
+                          <p className="text-xs text-muted-foreground">Secure instant payment</p>
+                        </div>
+                      </div>
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button 
+                onClick={handlePlaceOrder} 
+                className="w-full h-12 text-lg font-bold"
+                disabled={isPlacingOrder}
+              >
+                {isPlacingOrder ? <Loader2 className="h-5 w-5 animate-spin" /> : "Place Order"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
