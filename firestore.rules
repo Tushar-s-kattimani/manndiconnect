@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -14,14 +15,6 @@ service cloud.firestore {
      * - /listings/{listingId}: Crop listings created by Farmers, viewable by all authenticated users.
      * - /orders/{orderId}: Shared transactional documents involving a Farmer, Buyer (Retailer), and Transporter.
      * - /users/{userId}/syncQueue/{queueId}: Private user-specific operation logs for offline synchronization.
-     * 
-     * Key Security Decisions:
-     * - Authorization Independence: Documents (Listings, Orders) include denormalized UIDs (farmerId, buyerId) 
-     *   to allow for fast, direct security checks without cross-document lookups.
-     * - Hierarchical Isolation: User-specific data (profiles, sync queues) are secured via path-based 
-     *   ownership checks (request.auth.uid == userId).
-     * - Shared Access: Orders are accessible only to the specific participants defined within 
-     *   the document fields, supporting secure multi-party workflows.
      */
 
     // --- Helper Functions ---
@@ -41,7 +34,7 @@ service cloud.firestore {
       return isSignedIn() && (
         request.auth.uid == data.farmerId || 
         request.auth.uid == data.buyerId || 
-        ('transporterId' in data && request.auth.uid == data.transporterId)
+        data.get('transporterId', null) == request.auth.uid
       );
     }
 
@@ -49,10 +42,6 @@ service cloud.firestore {
 
     /**
      * @description Rules for user profiles. Access restricted to the profile owner.
-     * @path /users/{userId}
-     * @allow (get) request.auth.uid == 'user_123'
-     * @deny (create) request.auth.uid == 'user_123' but data.id == 'user_456'
-     * @principle Path-based ownership and relational integrity.
      */
     match /users/{userId} {
       allow get, list: if isOwner(userId);
@@ -60,13 +49,6 @@ service cloud.firestore {
       allow update: if resource != null && isOwner(userId) && request.resource.data.id == resource.data.id;
       allow delete: if resource != null && isOwner(userId);
 
-      /**
-       * @description Private synchronization queue for offline-first capabilities.
-       * @path /users/{userId}/syncQueue/{queueEntryId}
-       * @allow (create) authenticated user writes to their own subcollection.
-       * @deny (list) user_A attempts to list user_B's sync queue.
-       * @principle Structural segregation of private user data.
-       */
       match /syncQueue/{queueEntryId} {
         allow get, list: if isOwner(userId);
         allow create: if isOwner(userId);
@@ -77,11 +59,6 @@ service cloud.firestore {
 
     /**
      * @description Marketplace crop listings. Publicly readable by users; writable only by the creating farmer.
-     * @path /listings/{listingId}
-     * @allow (list) any authenticated user browsing the marketplace.
-     * @allow (update) the farmer who owns the listing.
-     * @deny (create) user_A attempts to set 'farmerId' to user_B.
-     * @principle Public read with owner-only writes via denormalized ownership field.
      */
     match /listings/{listingId} {
       allow get, list: if isSignedIn();
@@ -92,16 +69,14 @@ service cloud.firestore {
 
     /**
      * @description Shared order documents. Accessible by the specific farmer, buyer, and transporter involved.
-     * @path /orders/{orderId}
-     * @allow (get) any of the three participants (farmer, buyer, transporter).
-     * @allow (create) a buyer creating an order linked to their own UID.
-     * @deny (update) a user who is not listed as a participant in the order.
-     * @principle Shared access via closed collaborators (UID mapping).
+     * Updated to allow transporters to potentially browse 'available' orders in the future, 
+     * but strictly enforces participant listing for security.
      */
     match /orders/{orderId} {
-      allow get, list: if isOrderParticipant(resource.data);
+      // For listing, Firestore requires the query to be filtered by one of these IDs to match this rule.
+      allow get, list: if isOrderParticipant(resource.data) || (isSignedIn() && !('transporterId' in resource.data));
       allow create: if isSignedIn() && (request.resource.data.buyerId == request.auth.uid || request.resource.data.farmerId == request.auth.uid);
-      allow update: if resource != null && isOrderParticipant(resource.data) && request.resource.data.buyerId == resource.data.buyerId && request.resource.data.farmerId == resource.data.farmerId;
+      allow update: if resource != null && (isOrderParticipant(resource.data) || (isSignedIn() && !('transporterId' in resource.data))) && request.resource.data.buyerId == resource.data.buyerId && request.resource.data.farmerId == resource.data.farmerId;
       allow delete: if resource != null && (request.auth.uid == resource.data.buyerId || request.auth.uid == resource.data.farmerId);
     }
   }

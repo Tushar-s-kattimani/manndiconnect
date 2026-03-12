@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Truck, MapPin, Calendar, IndianRupee, MoveRight, Mail, RefreshCcw, Loader2, Lock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, where } from 'firebase/firestore';
 
 export default function TransporterPage() {
   const { t } = useLanguage();
@@ -20,11 +20,16 @@ export default function TransporterPage() {
   const firestore = useFirestore();
   const router = useRouter();
 
-  // Query for transport-related orders (jobs) - Only initialize if user is authenticated
+  // Query for transport-related orders (jobs assigned to this transporter)
+  // We filter by transporterId to satisfy Firestore Security Rules for listing.
   const jobsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    return query(collection(firestore, 'orders'), orderBy('orderDate', 'desc'));
-  }, [firestore, user]);
+    return query(
+      collection(firestore, 'orders'), 
+      where('transporterId', '==', user.uid),
+      orderBy('orderDate', 'desc')
+    );
+  }, [firestore, user?.uid]);
 
   const { data: jobs, isLoading: isDataLoading } = useCollection(jobsQuery);
 
@@ -98,9 +103,9 @@ export default function TransporterPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-black font-headline text-primary">Transport Jobs</h1>
-          <p className="text-muted-foreground">Logistics management for: <span className="font-bold">{user.email}</span></p>
+        <div className="mb-8 text-center sm:text-left">
+          <h1 className="text-3xl font-black font-headline text-primary tracking-tight">Transport Jobs</h1>
+          <p className="text-muted-foreground">Logistics management for: <span className="font-bold text-foreground">{user.email}</span></p>
         </div>
 
         {isDataLoading ? (
@@ -108,42 +113,59 @@ export default function TransporterPage() {
             <Loader2 className="h-10 w-10 text-primary animate-spin" />
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 max-w-4xl mx-auto">
             {!jobs || jobs.length === 0 ? (
-               <div className="py-20 text-center">
-                <p className="text-muted-foreground">No active transport jobs available at the moment.</p>
+               <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed flex flex-col items-center gap-4">
+                <div className="bg-muted p-4 rounded-full">
+                  <Truck className="h-10 w-10 text-muted-foreground" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">No Active Jobs</h3>
+                  <p className="text-muted-foreground">You don't have any transport jobs assigned to you yet.</p>
+                </div>
               </div>
             ) : (
               jobs.map((job: any) => (
-                <Card key={job.id} className="border-2 hover:border-primary transition-all overflow-hidden">
+                <Card key={job.id} className="border-2 hover:border-primary transition-all overflow-hidden bg-white shadow-sm hover:shadow-md">
                   <div className="flex flex-col md:flex-row">
-                    <div className="bg-primary/5 p-6 flex flex-col items-center justify-center md:border-r">
-                       <Truck className="h-10 w-10 text-primary mb-2" />
-                       <Badge variant="secondary" className="font-bold">{job.status}</Badge>
+                    <div className="bg-primary/5 p-6 flex flex-col items-center justify-center md:border-r border-border min-w-[140px]">
+                       <div className="bg-white p-3 rounded-2xl shadow-sm mb-3">
+                         <Truck className="h-8 w-8 text-primary" />
+                       </div>
+                       <Badge variant="secondary" className="font-bold uppercase tracking-wider text-[10px]">{job.status}</Badge>
                     </div>
                     <div className="flex-1 p-6">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-3">
-                            <div className="text-center">
-                               <p className="text-xs font-bold text-muted-foreground uppercase">Load</p>
-                               <p className="font-bold">{job.quantityOrdered} Units</p>
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-4">
+                            <div className="space-y-1">
+                               <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Load Weight</p>
+                               <p className="font-bold text-lg">{job.quantityOrdered} Units</p>
                             </div>
-                            <MoveRight className="h-5 w-5 text-muted-foreground mx-2" />
-                            <div className="text-center">
-                               <p className="text-xs font-bold text-muted-foreground uppercase">Farmer</p>
-                               <p className="font-bold">Verified Farm</p>
+                            <MoveRight className="h-6 w-6 text-primary/40 mx-2" />
+                            <div className="space-y-1">
+                               <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Origin</p>
+                               <p className="font-bold text-lg">Verified Farm</p>
                             </div>
                           </div>
-                          <div className="flex flex-wrap gap-4 text-sm">
-                            <span className="flex items-center font-medium"><MapPin className="h-4 w-4 mr-1 text-primary" /> Delivery Zone</span>
-                            <span className="flex items-center font-medium"><Calendar className="h-4 w-4 mr-1 text-primary" /> {new Date(job.orderDate).toLocaleDateString()}</span>
-                            <span className="flex items-center font-bold text-primary"><IndianRupee className="h-4 w-4 mr-1" /> {job.totalPrice} Est.</span>
+                          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                            <span className="flex items-center font-medium text-muted-foreground">
+                              <MapPin className="h-4 w-4 mr-1.5 text-primary" /> 
+                              Regional Delivery
+                            </span>
+                            <span className="flex items-center font-medium text-muted-foreground">
+                              <Calendar className="h-4 w-4 mr-1.5 text-primary" /> 
+                              {job.orderDate ? new Date(job.orderDate).toLocaleDateString() : 'TBD'}
+                            </span>
+                            <span className="flex items-center font-black text-primary text-base">
+                              <IndianRupee className="h-4 w-4 mr-1" /> 
+                              {job.totalPrice?.toLocaleString() || '0'} Est.
+                            </span>
                           </div>
                         </div>
-                        <div className="flex gap-2">
-                           <Button variant="outline" className="font-bold">Details</Button>
-                           <Button className="font-bold">Accept Job</Button>
+                        <div className="flex flex-row md:flex-col gap-2">
+                           <Button variant="outline" className="flex-1 md:w-32 font-bold border-2">Details</Button>
+                           <Button className="flex-1 md:w-32 font-bold shadow-lg">Manage</Button>
                         </div>
                       </div>
                     </div>
