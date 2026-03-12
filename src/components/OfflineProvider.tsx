@@ -3,19 +3,23 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, doc, serverTimestamp } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 interface Listing {
   id: string;
   cropName: string;
-  quantity: string;
-  price: string;
+  quantity: number;
+  price: number;
   status: 'pending' | 'synced';
-  timestamp: number;
+  farmerId: string;
+  farmerEmail: string;
+  createdAt: any;
 }
 
 interface OfflineContextType {
-  listings: Listing[];
-  addListing: (listing: Omit<Listing, 'id' | 'status' | 'timestamp'>) => void;
+  addListing: (listing: { cropName: string, quantity: string, price: string }) => void;
   syncData: () => Promise<void>;
   isOffline: boolean;
   hasUnsynced: boolean;
@@ -24,14 +28,13 @@ interface OfflineContextType {
 const OfflineContext = createContext<OfflineContextType | undefined>(undefined);
 
 export function OfflineProvider({ children }: { children: React.ReactNode }) {
-  const [listings, setListings] = useState<Listing[]>([]);
+  const { user } = useUser();
+  const firestore = useFirestore();
   const [isOffline, setIsOffline] = useState(false);
+  const [unsyncedListings, setUnsyncedListings] = useState<Listing[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
-    const saved = localStorage.getItem('farmlink_listings');
-    if (saved) setListings(JSON.parse(saved));
-
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
 
@@ -39,58 +42,88 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener('offline', handleOffline);
     setIsOffline(!navigator.onLine);
 
+    // Load unsynced from localStorage if user is logged in
+    if (user) {
+      const saved = localStorage.getItem(`farmlink_unsynced_${user.uid}`);
+      if (saved) setUnsyncedListings(JSON.parse(saved));
+    }
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [user]);
 
-  const addListing = (data: Omit<Listing, 'id' | 'status' | 'timestamp'>) => {
-    const newListing: Listing = {
-      ...data,
-      id: Math.random().toString(36).substr(2, 9),
-      status: 'pending',
-      timestamp: Date.now(),
+  const addListing = (data: { cropName: string, quantity: string, price: string }) => {
+    if (!user) return;
+
+    const listingId = Math.random().toString(36).substr(2, 9);
+    const newListing: any = {
+      id: listingId,
+      cropName: data.cropName,
+      quantity: parseFloat(data.quantity),
+      pricePerUnit: parseFloat(data.price),
+      status: 'Available',
+      farmerId: user.uid,
+      farmerEmail: user.email,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
-    const updated = [newListing, ...listings];
-    setListings(updated);
-    localStorage.setItem('farmlink_listings', JSON.stringify(updated));
 
     if (isOffline) {
+      const updated = [...unsyncedListings, { ...newListing, status: 'pending' }];
+      setUnsyncedListings(updated);
+      localStorage.setItem(`farmlink_unsynced_${user.uid}`, JSON.stringify(updated));
       toast({
         title: "Saved Offline",
-        description: "Your listing will be synced when you go online.",
+        description: "Listing will sync when you are back online.",
+      });
+    } else {
+      // Direct write to firestore
+      const docRef = doc(firestore, 'listings', listingId);
+      setDocumentNonBlocking(docRef, {
+        ...newListing,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      
+      toast({
+        title: "Listing Added",
+        description: "Successfully published to the marketplace.",
       });
     }
   };
 
   const syncData = async () => {
-    if (isOffline) {
-      toast({
-        title: "Offline",
-        description: "Cannot sync while offline.",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (isOffline || !user || unsyncedListings.length === 0) return;
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const synced = listings.map(l => ({ ...l, status: 'synced' as const }));
-    setListings(synced);
-    localStorage.setItem('farmlink_listings', JSON.stringify(synced));
-    
-    toast({
-      title: "Sync Successful",
-      description: "All local data has been pushed to the cloud.",
-    });
+    try {
+      for (const item of unsyncedListings) {
+        const docRef = doc(firestore, 'listings', item.id);
+        const { status, ...data } = item;
+        setDocumentNonBlocking(docRef, {
+          ...data,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      }
+      
+      setUnsyncedListings([]);
+      localStorage.removeItem(`farmlink_unsynced_${user.uid}`);
+      
+      toast({
+        title: "Sync Successful",
+        description: "Offline data has been pushed to the cloud.",
+      });
+    } catch (error) {
+      console.error("Sync failed", error);
+    }
   };
 
-  const hasUnsynced = listings.some(l => l.status === 'pending');
+  const hasUnsynced = unsyncedListings.length > 0;
 
   return (
-    <OfflineContext.Provider value={{ listings, addListing, syncData, isOffline, hasUnsynced }}>
+    <OfflineContext.Provider value={{ addListing, syncData, isOffline, hasUnsynced }}>
       {children}
     </OfflineContext.Provider>
   );
