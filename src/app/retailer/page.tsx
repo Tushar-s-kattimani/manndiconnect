@@ -20,11 +20,13 @@ import {
   Loader2, 
   Lock, 
   Sprout,
-  Leaf 
+  Leaf,
+  Truck
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
+import { collection, query, orderBy, doc, serverTimestamp } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 // Helper for crop symbols
 const CropSymbol = ({ name, className }: { name: string; className?: string }) => {
@@ -38,8 +40,10 @@ export default function RetailerPage() {
   const { user, isUserLoading, refreshProfile, logout } = useAuth();
   const [search, setSearch] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [requestingTransportId, setRequestingTransportId] = useState<string | null>(null);
   const firestore = useFirestore();
   const router = useRouter();
+  const { toast } = useToast();
 
   // Query for all available listings - Only initialize if user is authenticated
   const marketplaceQuery = useMemoFirebase(() => {
@@ -59,6 +63,40 @@ export default function RetailerPage() {
     setIsRefreshing(true);
     await refreshProfile();
     setIsRefreshing(false);
+  };
+
+  const handleRequestTransport = (listing: any) => {
+    if (!user) return;
+    
+    setRequestingTransportId(listing.id);
+    
+    const orderId = `order_${Math.random().toString(36).substr(2, 9)}`;
+    const orderData = {
+      id: orderId,
+      listingId: listing.id,
+      farmerId: listing.farmerId,
+      buyerId: user.uid,
+      buyerEmail: user.email,
+      cropName: listing.cropName,
+      quantityOrdered: listing.quantity,
+      agreedPricePerUnit: listing.pricePerUnit,
+      totalPrice: listing.quantity * listing.pricePerUnit,
+      status: 'Pending Transport',
+      orderDate: new Date().toISOString(),
+      updatedAt: serverTimestamp(),
+      transporterId: null // Explicitly null so transporters can find it
+    };
+
+    const docRef = doc(firestore, 'orders', orderId);
+    setDocumentNonBlocking(docRef, orderData, { merge: true });
+
+    toast({
+      title: "Transport Requested",
+      description: `Transport request for ${listing.cropName} has been sent to the network.`,
+    });
+
+    // Simulate small delay for UI feedback
+    setTimeout(() => setRequestingTransportId(null), 1000);
   };
 
   if (isUserLoading || !user) {
@@ -158,7 +196,7 @@ export default function RetailerPage() {
               </div>
             ) : (
               filteredListings.map((listing: any) => (
-                <Card key={listing.id} className="overflow-hidden group hover:shadow-xl transition-all border-2">
+                <Card key={listing.id} className="overflow-hidden group hover:shadow-xl transition-all border-2 flex flex-col">
                   <div className="relative h-32 w-full bg-primary/5 flex items-center justify-center">
                     <div className="bg-white p-4 rounded-2xl shadow-sm border border-primary/10 group-hover:scale-110 transition-transform">
                       <CropSymbol name={listing.cropName} className="h-10 w-10 text-primary" />
@@ -175,7 +213,7 @@ export default function RetailerPage() {
                       <div>
                         <CardTitle className="text-lg mb-1">{listing.cropName}</CardTitle>
                         <p className="text-xs font-medium text-muted-foreground flex items-center">
-                          <MapPin className="h-3 w-3 mr-1" /> Verified Farmer
+                          <MapPin className="h-3 w-3 mr-1" /> Verified Farm
                         </p>
                       </div>
                       <div className="text-right">
@@ -184,18 +222,32 @@ export default function RetailerPage() {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="p-4 pt-2">
+                  <CardContent className="p-4 pt-2 flex-grow">
                     <div className="flex justify-between text-sm py-2 border-y my-3">
                       <div className="flex items-center">
                         <Weight className="h-4 w-4 mr-2 text-primary" />
                         <span>{listing.quantity} Kg</span>
                       </div>
-                      <span className="font-medium truncate max-w-[100px]">{listing.farmerEmail}</span>
+                      <span className="font-medium truncate max-w-[100px] text-xs text-muted-foreground">
+                        {listing.farmerEmail?.split('@')[0]}
+                      </span>
                     </div>
                   </CardContent>
-                  <CardFooter className="p-4 pt-0 gap-2">
-                    <Button className="flex-1 font-bold">Buy Now</Button>
-                    <Button variant="outline" className="flex-1 font-bold">Chat</Button>
+                  <CardFooter className="p-4 pt-0 flex flex-col gap-2">
+                    <Button className="w-full font-bold">Buy Now</Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full font-bold gap-2 text-primary border-primary/20 hover:bg-primary/5"
+                      onClick={() => handleRequestTransport(listing)}
+                      disabled={requestingTransportId === listing.id}
+                    >
+                      {requestingTransportId === listing.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Truck className="h-4 w-4" />
+                      )}
+                      Transport
+                    </Button>
                   </CardFooter>
                 </Card>
               ))
