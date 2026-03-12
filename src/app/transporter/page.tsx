@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Truck, MapPin, Calendar, IndianRupee, MoveRight, Mail, RefreshCcw, Loader2, Lock, Briefcase, ClipboardList } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, orderBy, where, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, doc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 export default function TransporterPage() {
@@ -25,24 +25,23 @@ export default function TransporterPage() {
   const { toast } = useToast();
 
   // Query for transport-related orders (jobs assigned to this transporter)
+  // Simplified query by removing orderBy to avoid composite index requirements
   const myJobsQuery = useMemoFirebase(() => {
     if (!firestore || !user || profile?.role !== 'transporter') return null;
     return query(
       collection(firestore, 'orders'), 
-      where('transporterId', '==', user.uid),
-      orderBy('orderDate', 'desc')
+      where('transporterId', '==', user.uid)
     );
   }, [firestore, user?.uid, profile?.role]);
 
   // Query for available jobs (pending transport, no transporter assigned yet)
-  // We explicitly filter for transporterId == null to match security rules
+  // Simplified query: No orderBy to ensure immediate visibility without custom indexes
   const availableJobsQuery = useMemoFirebase(() => {
     if (!firestore || !user || profile?.role !== 'transporter') return null;
     return query(
       collection(firestore, 'orders'), 
       where('status', '==', 'Pending Transport'),
-      where('transporterId', '==', null),
-      orderBy('orderDate', 'desc')
+      where('transporterId', '==', null)
     );
   }, [firestore, user?.uid, profile?.role]);
 
@@ -81,7 +80,7 @@ export default function TransporterPage() {
     setTimeout(() => setAcceptingId(null), 1000);
   };
 
-  if (isUserLoading || !user) {
+  if (isUserLoading || !user || !profile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-10 w-10 text-primary animate-spin" />
