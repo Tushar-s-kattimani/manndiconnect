@@ -52,6 +52,7 @@ export default function TransporterPage() {
   const router = useRouter();
   const { toast } = useToast();
 
+  // Broad query to get all orders, filtering is done in memory to avoid index issues
   const allOrdersQuery = useMemoFirebase(() => {
     if (!firestore || !user || profile?.role !== 'transporter') return null;
     return collection(firestore, 'orders');
@@ -161,7 +162,9 @@ export default function TransporterPage() {
            <Badge variant={job.status === 'Delivered' ? "default" : "outline"} className="font-bold uppercase tracking-wider text-[10px]">
             {job.status}
            </Badge>
-           <span className="mt-3 text-[10px] font-code bg-muted px-2 py-0.5 rounded text-muted-foreground">ID: {job.id.split('_').pop()}</span>
+           <span className="mt-3 text-[10px] font-mono bg-muted px-2 py-0.5 rounded text-muted-foreground flex items-center gap-1">
+             <Hash className="h-2 w-2" /> {job.id.split('_').pop()?.toUpperCase()}
+           </span>
         </div>
         <div className="flex-1 p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -239,7 +242,7 @@ export default function TransporterPage() {
             <p className="text-muted-foreground font-medium">Verified Transporter Portal</p>
           </div>
           <div className="flex items-center gap-4">
-            <div className="bg-primary/5 px-4 py-2 rounded-xl border-2 border-primary/10">
+            <div className="bg-primary/5 px-4 py-2 rounded-xl border-2 border-primary/10 text-right">
               <span className="text-xs font-black uppercase tracking-widest text-primary block">Completed Earnings</span>
               <span className="text-xl font-black">₹{deliveredJobs?.reduce((acc: any, curr: any) => acc + (curr.totalPrice || 0), 0).toLocaleString()}</span>
             </div>
@@ -263,18 +266,18 @@ export default function TransporterPage() {
             {isOrdersLoading ? (
               <div className="flex items-center justify-center py-20"><Loader2 className="h-10 w-10 text-primary animate-spin" /></div>
             ) : (
-              <div className="max-w-7xl">
+              <div className="max-w-full">
                 {availableJobs.length === 0 ? (
                   <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed">
                     <h3 className="text-xl font-bold">No Jobs Available</h3>
-                    <p className="text-muted-foreground">When retailers request transport, they will appear here in the table below.</p>
+                    <p className="text-muted-foreground">When retailers broadcast transport requests, they will appear here.</p>
                   </div>
                 ) : (
-                  <div className="bg-white rounded-xl border-2 shadow-sm overflow-hidden">
+                  <div className="bg-white rounded-xl border-2 shadow-sm overflow-hidden overflow-x-auto">
                     <Table>
                       <TableHeader className="bg-primary/5">
                         <TableRow>
-                          <TableHead className="font-bold">ID</TableHead>
+                          <TableHead className="font-bold w-[120px]">Job ID</TableHead>
                           <TableHead className="font-bold">Order Detail</TableHead>
                           <TableHead className="font-bold">Pickup Point</TableHead>
                           <TableHead className="font-bold">Destination</TableHead>
@@ -286,8 +289,11 @@ export default function TransporterPage() {
                       <TableBody>
                         {availableJobs.map((job: any) => (
                           <TableRow key={job.id} className="hover:bg-primary/5 transition-colors">
-                            <TableCell className="font-code text-[10px] text-muted-foreground">
-                               {job.id.split('_').pop()}
+                            <TableCell className="font-mono text-[10px] text-muted-foreground font-bold">
+                               <div className="flex items-center gap-1">
+                                 <Hash className="h-3 w-3 text-primary" />
+                                 {job.id.split('_').pop()?.toUpperCase()}
+                               </div>
                             </TableCell>
                             <TableCell>
                               <div className="flex flex-col">
@@ -326,13 +332,13 @@ export default function TransporterPage() {
                                 </div>
                               </div>
                             </TableCell>
-                            <TableCell className="font-black text-primary text-lg">₹{job.totalPrice?.toLocaleString()}</TableCell>
+                            <TableCell className="font-black text-primary text-lg whitespace-nowrap">₹{job.totalPrice?.toLocaleString()}</TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">
                                 <Button 
                                   size="sm"
                                   onClick={() => handleAcceptJob(job.id)} 
-                                  className="font-bold gap-1"
+                                  className="font-bold gap-1 shadow-sm"
                                   disabled={updatingId === job.id}
                                 >
                                   {updatingId === job.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
@@ -363,7 +369,7 @@ export default function TransporterPage() {
               {activeJobs.length === 0 ? (
                 <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed">
                   <h3 className="text-xl font-bold">No Active Jobs</h3>
-                  <p className="text-muted-foreground">Accept an available job from the table to see it here.</p>
+                  <p className="text-muted-foreground">Accept an available job from the list to see it here.</p>
                 </div>
               ) : (
                 activeJobs.map((job: any) => <JobCard key={job.id} job={job} />)
