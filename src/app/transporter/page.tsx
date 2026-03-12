@@ -10,6 +10,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
+  Table, 
+  TableBody, 
+  TableCaption, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+import { 
   Truck, 
   MapPin, 
   IndianRupee, 
@@ -22,7 +31,8 @@ import {
   XCircle,
   Check,
   User,
-  ShoppingBag
+  ShoppingBag,
+  Phone
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
@@ -38,8 +48,6 @@ export default function TransporterPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  // Simplified query for Available Jobs (Not yet assigned)
-  // Filtering transporterId === null locally to avoid index issues
   const availableJobsQuery = useMemoFirebase(() => {
     if (!firestore || !user || profile?.role !== 'transporter') return null;
     return query(
@@ -48,7 +56,6 @@ export default function TransporterPage() {
     );
   }, [firestore, user?.uid, profile?.role]);
 
-  // Query for My Active Jobs
   const activeJobsQuery = useMemoFirebase(() => {
     if (!firestore || !user || profile?.role !== 'transporter') return null;
     return query(
@@ -58,7 +65,6 @@ export default function TransporterPage() {
     );
   }, [firestore, user?.uid, profile?.role]);
 
-  // Query for Delivered
   const deliveredJobsQuery = useMemoFirebase(() => {
     if (!firestore || !user || profile?.role !== 'transporter') return null;
     return query(
@@ -125,7 +131,6 @@ export default function TransporterPage() {
     setTimeout(() => setUpdatingId(null), 800);
   };
 
-  // Filter out locally rejected jobs and ensure transporterId is actually null (unassigned)
   const displayAvailable = useMemo(() => {
     if (!availableJobs) return [];
     return availableJobs.filter(job => 
@@ -142,7 +147,7 @@ export default function TransporterPage() {
     );
   }
 
-  const JobCard = ({ job, isAvailable = false }: { job: any, isAvailable?: boolean }) => (
+  const JobCard = ({ job }: { job: any }) => (
     <Card key={job.id} className="border-2 hover:border-primary transition-all overflow-hidden bg-white shadow-sm hover:shadow-md mb-4">
       <div className="flex flex-col md:flex-row">
         <div className="bg-primary/5 p-6 flex flex-col items-center justify-center md:border-r border-border min-w-[140px]">
@@ -156,21 +161,23 @@ export default function TransporterPage() {
              )}
            </div>
            <Badge variant={job.status === 'Delivered' ? "default" : "outline"} className="font-bold uppercase tracking-wider text-[10px]">
-            {job.status === 'Pending Transport' ? 'Available' : job.status}
+            {job.status}
            </Badge>
         </div>
         <div className="flex-1 p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="space-y-4">
               <div>
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Load Details</p>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Route Info</p>
                 <div className="flex items-center gap-4">
                   <div className="space-y-1">
-                     <p className="font-bold text-lg">{job.cropName} ({job.quantityOrdered} Kg)</p>
+                     <p className="font-bold text-lg">{job.cropName}</p>
+                     <p className="text-xs text-muted-foreground">From: Farm hub</p>
                   </div>
                   <MoveRight className="h-6 w-6 text-primary/40" />
                   <div className="space-y-1">
-                     <p className="font-bold text-lg">Market Hub</p>
+                     <p className="font-bold text-lg">{job.deliveryAddress || 'Market Hub'}</p>
+                     <p className="text-xs text-muted-foreground">To: Destination</p>
                   </div>
                 </div>
               </div>
@@ -178,12 +185,14 @@ export default function TransporterPage() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <User className="h-4 w-4 text-primary" />
-                  <span className="font-medium">Farmer: {job.farmerName || 'Unknown'}</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <ShoppingBag className="h-4 w-4 text-primary" />
                   <span className="font-medium">Buyer: {job.buyerName || 'Unknown'}</span>
                 </div>
+                {job.contactPhone && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Phone className="h-4 w-4 text-primary" />
+                    <span className="font-medium">{job.contactPhone}</span>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center font-black text-primary text-xl">
@@ -192,47 +201,23 @@ export default function TransporterPage() {
             </div>
             
             <div className="flex flex-row md:flex-col gap-2">
-               {isAvailable ? (
-                 <>
-                   <Button 
-                     onClick={() => handleAcceptJob(job.id)} 
-                     className="flex-1 md:w-40 font-bold shadow-lg gap-2"
-                     disabled={updatingId === job.id}
-                   >
-                     {updatingId === job.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                     Accept
-                   </Button>
-                   <Button 
-                     onClick={() => handleRejectJob(job.id)} 
-                     variant="outline"
-                     className="flex-1 md:w-40 font-bold border-destructive text-destructive hover:bg-destructive/5 gap-2"
-                   >
-                     <XCircle className="h-4 w-4" />
-                     Reject
-                   </Button>
-                 </>
-               ) : (
-                 <>
-                   {job.status === 'Accepted' && (
-                     <Button 
-                       onClick={() => handleUpdateStatus(job.id, 'Confirmed', 'Transport confirmed. Item is in transit.')} 
-                       className="flex-1 md:w-40 font-bold shadow-lg gap-2 bg-secondary text-secondary-foreground"
-                       disabled={updatingId === job.id}
-                     >
-                       Confirm Pickup
-                     </Button>
-                   )}
-                   {job.status === 'Confirmed' && (
-                     <Button 
-                       onClick={() => handleUpdateStatus(job.id, 'Delivered', 'Order marked as delivered!')} 
-                       className="flex-1 md:w-40 font-bold shadow-lg gap-2"
-                       disabled={updatingId === job.id}
-                     >
-                       Mark Delivered
-                     </Button>
-                   )}
-                   <Button variant="outline" className="flex-1 md:w-40 font-bold border-2">Details</Button>
-                 </>
+               {job.status === 'Accepted' && (
+                 <Button 
+                   onClick={() => handleUpdateStatus(job.id, 'Confirmed', 'Transport confirmed. Item is in transit.')} 
+                   className="flex-1 md:w-40 font-bold shadow-lg gap-2 bg-secondary text-secondary-foreground"
+                   disabled={updatingId === job.id}
+                 >
+                   Confirm Pickup
+                 </Button>
+               )}
+               {job.status === 'Confirmed' && (
+                 <Button 
+                   onClick={() => handleUpdateStatus(job.id, 'Delivered', 'Order marked as delivered!')} 
+                   className="flex-1 md:w-40 font-bold shadow-lg gap-2"
+                   disabled={updatingId === job.id}
+                 >
+                   Mark Delivered
+                 </Button>
                )}
             </div>
           </div>
@@ -273,14 +258,72 @@ export default function TransporterPage() {
             {isAvailableLoading ? (
               <div className="flex items-center justify-center py-20"><Loader2 className="h-10 w-10 text-primary animate-spin" /></div>
             ) : (
-              <div className="max-w-5xl">
+              <div className="max-w-6xl">
                 {displayAvailable.length === 0 ? (
                   <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed">
                     <h3 className="text-xl font-bold">No Jobs Available</h3>
-                    <p className="text-muted-foreground">When retailers request transport, they will appear here for you to accept.</p>
+                    <p className="text-muted-foreground">When retailers request transport, they will appear here in the table below.</p>
                   </div>
                 ) : (
-                  displayAvailable.map((job: any) => <JobCard key={job.id} job={job} isAvailable={true} />)
+                  <div className="bg-white rounded-xl border-2 shadow-sm overflow-hidden">
+                    <Table>
+                      <TableHeader className="bg-primary/5">
+                        <TableRow>
+                          <TableHead className="font-bold">Crop</TableHead>
+                          <TableHead className="font-bold text-center">Weight (Kg)</TableHead>
+                          <TableHead className="font-bold">Place / Destination</TableHead>
+                          <TableHead className="font-bold">Retailer Contact</TableHead>
+                          <TableHead className="font-bold">Total Fare</TableHead>
+                          <TableHead className="font-bold text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {displayAvailable.map((job: any) => (
+                          <TableRow key={job.id} className="hover:bg-primary/5 transition-colors">
+                            <TableCell className="font-bold">{job.cropName}</TableCell>
+                            <TableCell className="text-center">{job.quantityOrdered}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <MapPin className="h-3 w-3 text-primary" />
+                                {job.deliveryAddress || 'Regional Hub'}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span className="text-xs text-muted-foreground">{job.buyerName}</span>
+                                <div className="flex items-center gap-1 font-medium">
+                                  <Phone className="h-3 w-3 text-primary" />
+                                  {job.contactPhone || 'No phone'}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-black text-primary">₹{job.totalPrice?.toLocaleString()}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button 
+                                  size="sm"
+                                  onClick={() => handleAcceptJob(job.id)} 
+                                  className="font-bold gap-1"
+                                  disabled={updatingId === job.id}
+                                >
+                                  {updatingId === job.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                                  Accept
+                                </Button>
+                                <Button 
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleRejectJob(job.id)} 
+                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 )}
               </div>
             )}
@@ -294,7 +337,7 @@ export default function TransporterPage() {
                 {!activeJobs || activeJobs.length === 0 ? (
                   <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed">
                     <h3 className="text-xl font-bold">No Active Jobs</h3>
-                    <p className="text-muted-foreground">Accept an available job to see it here.</p>
+                    <p className="text-muted-foreground">Accept an available job from the table to see it here.</p>
                   </div>
                 ) : (
                   activeJobs.map((job: any) => <JobCard key={job.id} job={job} />)

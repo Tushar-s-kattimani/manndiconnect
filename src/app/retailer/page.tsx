@@ -27,7 +27,8 @@ import {
   ShoppingBag,
   LayoutGrid,
   User,
-  MapPin
+  MapPin,
+  Phone
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
@@ -48,9 +49,16 @@ export default function RetailerPage() {
   const [requestingTransportId, setRequestingTransportId] = useState<string | null>(null);
   
   const [isBuyNowOpen, setIsBuyNowOpen] = useState(false);
+  const [isTransportDialogOpen, setIsTransportDialogOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'online'>('cod');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+
+  // Transport Details Form
+  const [transportDetails, setTransportDetails] = useState({
+    place: '',
+    phone: ''
+  });
 
   const firestore = useFirestore();
   const router = useRouter();
@@ -133,43 +141,53 @@ export default function RetailerPage() {
     setSelectedListing(null);
   };
 
-  const handleRequestTransport = (listing: any) => {
-    if (!user || !firestore) return;
+  const handleRequestTransportClick = (listing: any) => {
+    setSelectedListing(listing);
+    setIsTransportDialogOpen(true);
+  };
+
+  const handleConfirmTransport = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !firestore || !selectedListing) return;
     
-    setRequestingTransportId(listing.id);
-    
+    setIsPlacingOrder(true);
     const orderId = `order_${Math.random().toString(36).substr(2, 9)}`;
     const orderData = {
       id: orderId,
-      listingId: listing.id,
-      farmerId: listing.farmerId,
-      farmerEmail: listing.farmerEmail || '',
-      farmerName: listing.farmerName || 'Farmer',
+      listingId: selectedListing.id,
+      farmerId: selectedListing.farmerId,
+      farmerEmail: selectedListing.farmerEmail || '',
+      farmerName: selectedListing.farmerName || 'Farmer',
       buyerId: user.uid,
       buyerEmail: user.email,
       buyerName: profile?.name || user.email?.split('@')[0],
-      cropName: listing.cropName,
-      quantityOrdered: listing.quantity,
-      agreedPricePerUnit: listing.pricePerUnit,
-      totalPrice: listing.quantity * listing.pricePerUnit,
+      cropName: selectedListing.cropName,
+      quantityOrdered: selectedListing.quantity,
+      agreedPricePerUnit: selectedListing.pricePerUnit,
+      totalPrice: selectedListing.quantity * selectedListing.pricePerUnit,
       status: 'Pending Transport',
       orderDate: new Date().toISOString(),
       updatedAt: serverTimestamp(),
-      transporterId: null 
+      transporterId: null,
+      deliveryAddress: transportDetails.place,
+      contactPhone: transportDetails.phone
     };
 
     const orderRef = doc(firestore, 'orders', orderId);
     setDocumentNonBlocking(orderRef, orderData, { merge: true });
 
-    const listingRef = doc(firestore, 'listings', listing.id);
+    const listingRef = doc(firestore, 'listings', selectedListing.id);
     updateDocumentNonBlocking(listingRef, { status: 'Sold', updatedAt: serverTimestamp() });
 
     toast({
       title: "Transport Requested",
-      description: `Request sent to all transporters for ${listing.cropName}.`,
+      description: `Request sent to all transporters for ${selectedListing.cropName}.`,
     });
 
-    setTimeout(() => setRequestingTransportId(null), 1000);
+    setIsTransportDialogOpen(false);
+    setIsPlacingOrder(false);
+    setSelectedListing(null);
+    setTransportDetails({ place: '', phone: '' });
   };
 
   if (isUserLoading || !user || !profile) {
@@ -284,8 +302,7 @@ export default function RetailerPage() {
                           <Button 
                             variant="outline" 
                             className="w-full font-bold gap-2 text-primary border-primary/20 h-10"
-                            onClick={() => handleRequestTransport(listing)}
-                            disabled={requestingTransportId === listing.id}
+                            onClick={() => handleRequestTransportClick(listing)}
                           >
                             <Truck className="h-4 w-4" /> Transport
                           </Button>
@@ -335,6 +352,12 @@ export default function RetailerPage() {
                               Payment: {order.paymentMethod === 'online' ? 'Paid Online' : 'Cash on Delivery'}
                             </div>
                           )}
+                          {order.deliveryAddress && (
+                            <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
+                              <MapPin className="h-3 w-3 text-primary" />
+                              Address: {order.deliveryAddress}
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     ))
@@ -345,6 +368,7 @@ export default function RetailerPage() {
           </Tabs>
         </div>
 
+        {/* Buy Now Dialog */}
         <Dialog open={isBuyNowOpen} onOpenChange={setIsBuyNowOpen}>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
@@ -385,6 +409,56 @@ export default function RetailerPage() {
                 {isPlacingOrder ? <Loader2 className="h-5 w-5 animate-spin" /> : "Confirm Order"}
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Transport Request Dialog */}
+        <Dialog open={isTransportDialogOpen} onOpenChange={setIsTransportDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-black text-primary">Transport Details</DialogTitle>
+              <DialogDescription>
+                Provide pickup/delivery details for <strong>{selectedListing?.cropName}</strong>
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleConfirmTransport} className="py-4 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="place" className="font-bold">Delivery Place / Village</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    id="place" 
+                    placeholder="Enter village or market hub name" 
+                    className="pl-10 h-12 border-2"
+                    value={transportDetails.place}
+                    onChange={(e) => setTransportDetails({...transportDetails, place: e.target.value})}
+                    required 
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="font-bold">Contact Phone Number</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    id="phone" 
+                    type="tel"
+                    placeholder="9998887776" 
+                    className="pl-10 h-12 border-2"
+                    value={transportDetails.phone}
+                    onChange={(e) => setTransportDetails({...transportDetails, phone: e.target.value})}
+                    required 
+                  />
+                </div>
+              </div>
+              <div className="bg-primary/5 p-4 rounded-xl border border-primary/10">
+                <p className="text-xs font-bold text-muted-foreground uppercase mb-1">Estimated Load</p>
+                <p className="font-black text-primary">{selectedListing?.quantity} Kg • ₹{(selectedListing?.quantity * selectedListing?.pricePerUnit).toLocaleString()}</p>
+              </div>
+              <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isPlacingOrder}>
+                {isPlacingOrder ? <Loader2 className="h-5 w-5 animate-spin" /> : "Broadcast Request"}
+              </Button>
+            </form>
           </DialogContent>
         </Dialog>
       </main>
