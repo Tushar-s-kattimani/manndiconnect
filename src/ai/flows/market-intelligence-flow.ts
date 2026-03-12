@@ -21,12 +21,12 @@ const MarketIntelligenceOutputSchema = z.object({
   insight: z.string().describe('A summary explanation of the current market state in Karnataka.'),
   lastUpdated: z.string().describe('Relative time string like "Today" or "Yesterday".'),
   marketRates: z.array(z.object({
-    location: z.string().describe('The specific Mandi name in Karnataka (e.g., Yeshwanthpur, Hubli, Kolar, Mysore, Davanagere).'),
+    location: z.string().describe('The specific Mandi name in Karnataka (e.g., Yeshwanthpur, Hubli, Kolar, Mysore, Davanagere, Bagalkot, Belgaum).'),
     min: z.number().describe('Minimum price in INR'),
     max: z.number().describe('Maximum price in INR'),
     average: z.number().describe('Average price in INR'),
-    unit: z.string().describe('The unit of measurement (e.g., Kg, Quintal).'),
-  })).describe('Estimated rates for the produce in at least 3-5 major Karnataka Mandis.'),
+    unit: z.string().describe('The unit of measurement (usually Kg or Quintal).'),
+  })).describe('Estimated rates for the produce in 5-8 major Karnataka Mandis.'),
 });
 export type MarketIntelligenceOutput = z.infer<typeof MarketIntelligenceOutputSchema>;
 
@@ -41,14 +41,14 @@ const prompt = ai.definePrompt({
   prompt: `You are an expert agricultural market analyst specializing EXCLUSIVELY in the Karnataka market (APMC/Mandi rates). 
   Provide a realistic estimation of the current market price for the specified produce across MULTIPLE major locations in Karnataka.
   
-  For the given produce, identify 3 to 5 key Mandis in Karnataka where it is majorly traded (e.g., Kolar for Tomatoes, Yeshwanthpur for Onions/Potatoes, Hubli for Grains, Byadgi for Chillies).
+  For the given produce, identify 5 to 8 key Mandis in Karnataka where it is majorly traded (e.g., Kolar for Tomatoes, Yeshwanthpur for Onions/Potatoes, Hubli for Grains, Byadgi for Chillies, Mysore for Fruits).
   
   Use current seasonal knowledge for Karnataka (assuming current date is March 2026).
   
   Produce: {{{cropName}}}
   Region: Karnataka, India
   
-  Ensure prices are realistic for Karnataka's APMC standards. Provide the output in the specified JSON format.`,
+  Ensure prices are realistic for Karnataka's APMC standards. Rates should generally be per Kg for vegetables/fruits and per Quintal for grains where standard, but specify clearly. Provide the output in the specified JSON format.`,
 });
 
 const marketIntelligenceFlow = ai.defineFlow(

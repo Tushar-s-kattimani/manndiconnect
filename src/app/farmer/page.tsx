@@ -412,14 +412,14 @@ export default function FarmerPage() {
                     <Map className="h-6 w-6" />
                     Karnataka Regional Market Intelligence
                   </CardTitle>
-                  <CardDescription>Estimated APMC Mandi rates across major hubs in Karnataka.</CardDescription>
+                  <CardDescription>Estimated Mandi rates across 5-8 major hubs in Karnataka.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input 
-                        placeholder="Search produce (e.g. Byadgi Chilli, Mango, Onion)..." 
+                        placeholder="Search produce (e.g. Tomato, Byadgi Chilli, Onion, Rice)..." 
                         className="pl-10 h-11"
                         value={marketSearch}
                         onChange={(e) => setMarketSearch(e.target.value)}
@@ -439,7 +439,7 @@ export default function FarmerPage() {
                     <Card className="md:col-span-2 border-2">
                       <CardHeader className="pb-2">
                         <div className="flex justify-between items-center">
-                          <CardTitle className="text-lg font-black uppercase tracking-tight">Market Rates across Karnataka</CardTitle>
+                          <CardTitle className="text-lg font-black uppercase tracking-tight">Mandi Rates: {marketData.cropName}</CardTitle>
                           <Badge variant="outline" className="gap-1 bg-white">
                             {marketData.overallTrend === 'Rising' && <TrendingUp className="h-3 w-3 text-green-500" />}
                             {marketData.overallTrend === 'Falling' && <TrendingDown className="h-3 w-3 text-red-500" />}
@@ -449,7 +449,7 @@ export default function FarmerPage() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <div className="space-y-4">
+                        <div className="grid grid-cols-1 gap-4">
                           {marketData.marketRates.map((rate, idx) => (
                             <div key={idx} className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border/50 hover:bg-muted/50 transition-colors">
                               <div className="flex items-center gap-3">
@@ -458,12 +458,12 @@ export default function FarmerPage() {
                                 </div>
                                 <div>
                                   <p className="font-bold text-sm">{rate.location}</p>
-                                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black">Mandi Hub</p>
+                                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black">Karnataka Mandi</p>
                                 </div>
                               </div>
                               <div className="text-right">
-                                <p className="text-xl font-black text-primary">₹{rate.average}</p>
-                                <p className="text-[10px] font-bold text-muted-foreground">₹{rate.min}-₹{rate.max} / {rate.unit}</p>
+                                <p className="text-xl font-black text-primary">₹{rate.average} <span className="text-[10px] text-muted-foreground">/{rate.unit}</span></p>
+                                <p className="text-[10px] font-bold text-muted-foreground">Range: ₹{rate.min} - ₹{rate.max}</p>
                               </div>
                             </div>
                           ))}
