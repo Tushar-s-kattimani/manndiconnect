@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -26,7 +25,8 @@ import {
   LayoutGrid,
   User,
   MapPin,
-  Phone
+  Phone,
+  PhoneCall
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
@@ -223,9 +223,27 @@ export default function RetailerPage() {
                           <div className="flex items-center justify-between mb-2">
                             <Badge variant="outline" className="font-bold">{listing.quantity} Kg Available</Badge>
                           </div>
-                          <div className="text-sm text-muted-foreground space-y-1">
-                            <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-primary" /> {listing.location}</div>
-                            <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-primary" /> {listing.phoneNumber}</div>
+                          <div className="text-sm text-muted-foreground space-y-3">
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-3.5 w-3.5 text-primary" /> 
+                              <span className="truncate">{listing.location}</span>
+                            </div>
+                            <div className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
+                              <div className="flex items-center gap-2">
+                                <Phone className="h-3.5 w-3.5 text-primary" /> 
+                                <span className="font-medium">{listing.phoneNumber}</span>
+                              </div>
+                              <Button 
+                                variant="primary" 
+                                size="icon" 
+                                className="h-8 w-8 rounded-full shadow-md"
+                                asChild
+                              >
+                                <a href={`tel:${listing.phoneNumber}`} title="Call Farmer">
+                                  <PhoneCall className="h-4 w-4" />
+                                </a>
+                              </Button>
+                            </div>
                           </div>
                         </CardContent>
                         <CardFooter className="p-4 pt-0">
@@ -293,7 +311,14 @@ export default function RetailerPage() {
                  <h4 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Pickup Details</h4>
                  <div className="grid grid-cols-1 gap-2 bg-background p-4 rounded-xl border">
                     <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> <span className="text-sm font-medium">{selectedListing?.location}</span></div>
-                    <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-primary" /> <span className="text-sm font-medium">{selectedListing?.phoneNumber}</span></div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-primary" /> <span className="text-sm font-medium">{selectedListing?.phoneNumber}</span></div>
+                      <Button variant="ghost" size="sm" className="h-8 gap-1 font-bold text-primary" asChild>
+                        <a href={`tel:${selectedListing?.phoneNumber}`}>
+                          <PhoneCall className="h-4 w-4" /> Call
+                        </a>
+                      </Button>
+                    </div>
                  </div>
               </div>
               <RadioGroup defaultValue="cod" value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as 'cod' | 'online')}>
