@@ -21,14 +21,12 @@ import {
   Loader2, 
   Sprout,
   Leaf,
-  Truck,
   CreditCard,
   Banknote,
   ShoppingBag,
   LayoutGrid,
   User,
-  MapPin,
-  Phone
+  MapPin
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
@@ -46,19 +44,11 @@ export default function RetailerPage() {
   const { user, profile, isUserLoading, refreshProfile, logout } = useAuth();
   const [search, setSearch] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [requestingTransportId, setRequestingTransportId] = useState<string | null>(null);
   
   const [isBuyNowOpen, setIsBuyNowOpen] = useState(false);
-  const [isTransportDialogOpen, setIsTransportDialogOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'online'>('cod');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
-
-  // Transport Details Form
-  const [transportDetails, setTransportDetails] = useState({
-    place: '',
-    phone: ''
-  });
 
   const firestore = useFirestore();
   const router = useRouter();
@@ -121,8 +111,7 @@ export default function RetailerPage() {
       status: paymentMethod === 'online' ? 'Paid' : 'Pending',
       paymentMethod: paymentMethod,
       orderDate: new Date().toISOString(),
-      updatedAt: serverTimestamp(),
-      transporterId: null
+      updatedAt: serverTimestamp()
     };
 
     const orderRef = doc(firestore, 'orders', orderId);
@@ -139,55 +128,6 @@ export default function RetailerPage() {
     setIsBuyNowOpen(false);
     setIsPlacingOrder(false);
     setSelectedListing(null);
-  };
-
-  const handleRequestTransportClick = (listing: any) => {
-    setSelectedListing(listing);
-    setIsTransportDialogOpen(true);
-  };
-
-  const handleConfirmTransport = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !firestore || !selectedListing) return;
-    
-    setIsPlacingOrder(true);
-    const orderId = `order_${Math.random().toString(36).substr(2, 9)}`;
-    const orderData = {
-      id: orderId,
-      listingId: selectedListing.id,
-      farmerId: selectedListing.farmerId,
-      farmerEmail: selectedListing.farmerEmail || '',
-      farmerName: selectedListing.farmerName || 'Farmer',
-      buyerId: user.uid,
-      buyerEmail: user.email,
-      buyerName: profile?.name || user.email?.split('@')[0],
-      cropName: selectedListing.cropName,
-      quantityOrdered: selectedListing.quantity,
-      agreedPricePerUnit: selectedListing.pricePerUnit,
-      totalPrice: selectedListing.quantity * selectedListing.pricePerUnit,
-      status: 'Pending Transport',
-      orderDate: new Date().toISOString(),
-      updatedAt: serverTimestamp(),
-      transporterId: null,
-      deliveryAddress: transportDetails.place,
-      contactPhone: transportDetails.phone
-    };
-
-    const orderRef = doc(firestore, 'orders', orderId);
-    setDocumentNonBlocking(orderRef, orderData, { merge: true });
-
-    const listingRef = doc(firestore, 'listings', selectedListing.id);
-    updateDocumentNonBlocking(listingRef, { status: 'Sold', updatedAt: serverTimestamp() });
-
-    toast({
-      title: "Transport Requested",
-      description: `Request sent to all transporters for ${selectedListing.cropName}.`,
-    });
-
-    setIsTransportDialogOpen(false);
-    setIsPlacingOrder(false);
-    setSelectedListing(null);
-    setTransportDetails({ place: '', phone: '' });
   };
 
   if (isUserLoading || !user || !profile) {
@@ -297,15 +237,8 @@ export default function RetailerPage() {
                              <MapPin className="h-2 w-2" /> Regional Farm Hub
                           </div>
                         </CardContent>
-                        <CardFooter className="p-4 pt-0 flex flex-col gap-2">
+                        <CardFooter className="p-4 pt-0">
                           <Button onClick={() => handleBuyNowClick(listing)} className="w-full font-bold h-10 shadow-sm">Buy Now</Button>
-                          <Button 
-                            variant="outline" 
-                            className="w-full font-bold gap-2 text-primary border-primary/20 h-10"
-                            onClick={() => handleRequestTransportClick(listing)}
-                          >
-                            <Truck className="h-4 w-4" /> Transport
-                          </Button>
                         </CardFooter>
                       </Card>
                     ))
@@ -350,12 +283,6 @@ export default function RetailerPage() {
                             <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase">
                               {order.paymentMethod === 'online' ? <CreditCard className="h-3 w-3" /> : <Banknote className="h-3 w-3" />}
                               Payment: {order.paymentMethod === 'online' ? 'Paid Online' : 'Cash on Delivery'}
-                            </div>
-                          )}
-                          {order.deliveryAddress && (
-                            <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-                              <MapPin className="h-3 w-3 text-primary" />
-                              Address: {order.deliveryAddress}
                             </div>
                           )}
                         </CardContent>
@@ -409,56 +336,6 @@ export default function RetailerPage() {
                 {isPlacingOrder ? <Loader2 className="h-5 w-5 animate-spin" /> : "Confirm Order"}
               </Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Transport Request Dialog */}
-        <Dialog open={isTransportDialogOpen} onOpenChange={setIsTransportDialogOpen}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-black text-primary">Transport Details</DialogTitle>
-              <DialogDescription>
-                Provide pickup/delivery details for <strong>{selectedListing?.cropName}</strong>
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleConfirmTransport} className="py-4 space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="place" className="font-bold">Delivery Place / Village</Label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    id="place" 
-                    placeholder="Enter village or market hub name" 
-                    className="pl-10 h-12 border-2"
-                    value={transportDetails.place}
-                    onChange={(e) => setTransportDetails({...transportDetails, place: e.target.value})}
-                    required 
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone" className="font-bold">Contact Phone Number</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    id="phone" 
-                    type="tel"
-                    placeholder="9998887776" 
-                    className="pl-10 h-12 border-2"
-                    value={transportDetails.phone}
-                    onChange={(e) => setTransportDetails({...transportDetails, phone: e.target.value})}
-                    required 
-                  />
-                </div>
-              </div>
-              <div className="bg-primary/5 p-4 rounded-xl border border-primary/10">
-                <p className="text-xs font-bold text-muted-foreground uppercase mb-1">Estimated Load</p>
-                <p className="font-black text-primary">{selectedListing?.quantity} Kg • ₹{(selectedListing?.quantity * selectedListing?.pricePerUnit).toLocaleString()}</p>
-              </div>
-              <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isPlacingOrder}>
-                {isPlacingOrder ? <Loader2 className="h-5 w-5 animate-spin" /> : "Broadcast Request"}
-              </Button>
-            </form>
           </DialogContent>
         </Dialog>
       </main>

@@ -4,7 +4,7 @@
 import React, { useEffect } from 'react';
 import { useLanguage } from '@/components/LanguageContext';
 import { useAuth } from '@/components/AuthContext';
-import { Sprout, ShoppingCart, Truck } from 'lucide-react';
+import { Sprout, ShoppingCart } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function Home() {
@@ -26,7 +26,7 @@ export default function Home() {
     );
   }
 
-  const handleRoleSelect = (role: 'farmer' | 'retailer' | 'transporter') => {
+  const handleRoleSelect = (role: 'farmer' | 'retailer') => {
     router.push(`/auth/login?role=${role}`);
   };
 
@@ -71,19 +71,6 @@ export default function Home() {
             <div className="ml-5 text-left">
               <h3 className="text-xl font-bold">{t('retailer')}</h3>
               <p className="text-sm text-muted-foreground">Browse marketplace and place orders</p>
-            </div>
-          </button>
-
-          <button 
-            onClick={() => handleRoleSelect('transporter')}
-            className="w-full flex items-center p-6 bg-white border-2 border-transparent hover:border-primary rounded-2xl shadow-md transition-all group"
-          >
-            <div className="p-4 bg-accent/20 rounded-xl group-hover:bg-accent transition-colors">
-              <Truck className="h-8 w-8 text-primary" />
-            </div>
-            <div className="ml-5 text-left">
-              <h3 className="text-xl font-bold">{t('transporter')}</h3>
-              <p className="text-sm text-muted-foreground">Manage logistics and find transport jobs</p>
             </div>
           </button>
         </div>

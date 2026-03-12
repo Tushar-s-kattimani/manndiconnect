@@ -18,7 +18,6 @@ export const translations: Translations = {
   select_role: { en: 'I am a...', hi: 'मैं एक हूँ...' },
   farmer: { en: 'Farmer', hi: 'किसान' },
   retailer: { en: 'Retailer', hi: 'रिटेलर' },
-  transporter: { en: 'Transporter', hi: 'ट्रांसपोर्टर' },
   marketplace: { en: 'Marketplace', hi: 'बाज़ार' },
   my_listings: { en: 'My Listings', hi: 'मेरी लिस्टिंग' },
   add_crop: { en: 'Add New Crop', hi: 'नई फसल जोड़ें' },

@@ -1,10 +1,11 @@
+
 {
   "entities": {
     "User": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
-      "description": "Represents a user of the FarmLink application, who can be a Farmer, Retailer, or Transporter.",
+      "description": "Represents a user of the FarmLink application, who can be a Farmer or Retailer.",
       "properties": {
         "id": {
           "type": "string",
@@ -14,21 +15,9 @@
           "type": "string",
           "description": "The full name of the user."
         },
-        "phone": {
-          "type": "string",
-          "description": "The user's phone number, used for authentication and contact. (Relationship: User 1:N User)"
-        },
         "role": {
           "type": "string",
-          "description": "The role of the user within the application (e.g., 'Farmer', 'Retailer', 'Transporter')."
-        },
-        "villageGeo": {
-          "type": "string",
-          "description": "Geographical coordinates of the user's village, typically stored as a string like 'latitude,longitude'."
-        },
-        "languagePref": {
-          "type": "string",
-          "description": "The user's preferred language for the application interface (e.g., 'en' for English, 'hi' for Hindi)."
+          "description": "The role of the user within the application (e.g., 'Farmer', 'Retailer')."
         },
         "createdAt": {
           "type": "string",
@@ -44,7 +33,6 @@
       "required": [
         "id",
         "name",
-        "phone",
         "role",
         "createdAt",
         "updatedAt"
@@ -62,23 +50,15 @@
         },
         "farmerId": {
           "type": "string",
-          "description": "Reference to the User who created this listing. (Relationship: User 1:N Listing)"
+          "description": "Reference to the User who created this listing."
         },
         "cropName": {
           "type": "string",
-          "description": "The name of the crop being listed (e.g., 'Wheat', 'Rice', 'Potatoes')."
-        },
-        "description": {
-          "type": "string",
-          "description": "A detailed description of the crop, including variety, quality, etc."
+          "description": "The name of the crop being listed."
         },
         "quantity": {
           "type": "number",
           "description": "The available quantity of the crop."
-        },
-        "unitOfMeasure": {
-          "type": "string",
-          "description": "The unit of measurement for the quantity (e.g., 'kg', 'quintal', 'piece')."
         },
         "pricePerUnit": {
           "type": "number",
@@ -86,12 +66,7 @@
         },
         "status": {
           "type": "string",
-          "description": "The current status of the listing (e.g., 'Available', 'Sold', 'Cancelled')."
-        },
-        "imageUrl": {
-          "type": "string",
-          "description": "URL to an image of the crop.",
-          "format": "uri"
+          "description": "The current status of the listing (e.g., 'Available', 'Sold')."
         },
         "createdAt": {
           "type": "string",
@@ -109,7 +84,6 @@
         "farmerId",
         "cropName",
         "quantity",
-        "unitOfMeasure",
         "pricePerUnit",
         "status",
         "createdAt",
@@ -128,55 +102,19 @@
         },
         "listingId": {
           "type": "string",
-          "description": "Reference to the Listing that this order is for. (Relationship: Listing 1:N Order)"
+          "description": "Reference to the Listing that this order is for."
         },
         "farmerId": {
           "type": "string",
-          "description": "Reference to the User (Farmer) selling the crop. (Relationship: User 1:N Order)"
+          "description": "Reference to the User (Farmer) selling the crop."
         },
         "buyerId": {
           "type": "string",
-          "description": "Reference to the User (Retailer) buying the crop. (Relationship: User 1:N Order)"
-        },
-        "transporterId": {
-          "type": "string",
-          "description": "Reference to the User (Transporter) assigned to deliver the order, if any. (Relationship: User 1:N Order)"
-        },
-        "quantityOrdered": {
-          "type": "number",
-          "description": "The quantity of the crop requested in this order."
-        },
-        "agreedPricePerUnit": {
-          "type": "number",
-          "description": "The final agreed price per unit for the crop in this order."
-        },
-        "totalPrice": {
-          "type": "number",
-          "description": "The total calculated price for the entire order."
+          "description": "Reference to the User (Retailer) buying the crop."
         },
         "status": {
           "type": "string",
-          "description": "The current status of the order (e.g., 'Pending', 'Accepted', 'Paid', 'Delivered', 'Cancelled')."
-        },
-        "orderDate": {
-          "type": "string",
-          "description": "Timestamp when the order was placed.",
-          "format": "date-time"
-        },
-        "acceptedDate": {
-          "type": "string",
-          "description": "Timestamp when the order was accepted by the farmer.",
-          "format": "date-time"
-        },
-        "paidDate": {
-          "type": "string",
-          "description": "Timestamp when the order was paid by the buyer.",
-          "format": "date-time"
-        },
-        "deliveredDate": {
-          "type": "string",
-          "description": "Timestamp when the order was marked as delivered.",
-          "format": "date-time"
+          "description": "The current status of the order (e.g., 'Pending', 'Accepted', 'Paid')."
         }
       },
       "required": [
@@ -184,67 +122,7 @@
         "listingId",
         "farmerId",
         "buyerId",
-        "quantityOrdered",
-        "agreedPricePerUnit",
-        "totalPrice",
-        "status",
-        "orderDate"
-      ]
-    },
-    "SyncQueue": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "SyncQueue",
-      "type": "object",
-      "description": "Manages operations (CREATE, UPDATE, DELETE) that need to be synchronized with the backend, especially in an offline-first scenario.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the SyncQueue entry."
-        },
-        "entityName": {
-          "type": "string",
-          "description": "The name of the entity type being synchronized (e.g., 'User', 'Listing', 'Order')."
-        },
-        "entityId": {
-          "type": "string",
-          "description": "The ID of the actual entity record that this sync operation pertains to."
-        },
-        "actionType": {
-          "type": "string",
-          "description": "The type of action to be performed on the entity (e.g., 'CREATE', 'UPDATE', 'DELETE')."
-        },
-        "payload": {
-          "type": "string",
-          "description": "The JSON string representation of the entity data to be synchronized. For DELETE, this might be minimal."
-        },
-        "timestamp": {
-          "type": "string",
-          "description": "Timestamp when this sync operation was added to the queue.",
-          "format": "date-time"
-        },
-        "isSynced": {
-          "type": "boolean",
-          "description": "A flag indicating whether this operation has been successfully synchronized with the backend."
-        },
-        "attempts": {
-          "type": "number",
-          "description": "The number of times synchronization for this entry has been attempted."
-        },
-        "lastAttemptDate": {
-          "type": "string",
-          "description": "Timestamp of the last synchronization attempt.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "entityName",
-        "entityId",
-        "actionType",
-        "payload",
-        "timestamp",
-        "isSynced",
-        "attempts"
+        "status"
       ]
     }
   },
@@ -263,13 +141,7 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Stores individual user profiles, including their role (Farmer, Retailer, Transporter), geographical data, and language preferences. Access is restricted to the owner of the profile. This path also ensures path-based ownership for other user-specific subcollections.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user, corresponding to Firebase Authentication UID."
-            }
-          ]
+          "description": "Stores individual user profiles."
         }
       },
       {
@@ -279,13 +151,7 @@
           "schema": {
             "$ref": "#/backend/entities/Listing"
           },
-          "description": "Contains crop listings created by farmers. These listings are publicly readable by all authenticated users (retailers). Only the original `farmerId` (owner) can create, update, or delete their own listings. Includes denormalized 'farmerId' for authorization independence, allowing direct rule checks without 'get()' operations.",
-          "params": [
-            {
-              "name": "listingId",
-              "description": "The unique identifier for a specific crop listing."
-            }
-          ]
+          "description": "Contains crop listings created by farmers."
         }
       },
       {
@@ -295,36 +161,9 @@
           "schema": {
             "$ref": "#/backend/entities/Order"
           },
-          "description": "Manages orders placed by retailers for crop listings. This collection is collaborative, meaning an order is accessible by the involved `farmerId`, `buyerId`, and `transporterId`. It includes denormalized 'farmerId', 'buyerId', and 'transporterId' fields for authorization independence, crucial for secure list operations and multi-party access.",
-          "params": [
-            {
-              "name": "orderId",
-              "description": "The unique identifier for a specific order."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/syncQueue/{queueEntryId}",
-        "definition": {
-          "entityName": "SyncQueue",
-          "schema": {
-            "$ref": "#/backend/entities/SyncQueue"
-          },
-          "description": "A private subcollection for each user to manage offline changes and synchronization operations. Only the `userId` (owner) can read or write to their own sync queue, ensuring strict data isolation and security through path-based authorization.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user, corresponding to Firebase Authentication UID."
-            },
-            {
-              "name": "queueEntryId",
-              "description": "The unique identifier for a specific entry in the user's synchronization queue."
-            }
-          ]
+          "description": "Manages orders placed by retailers."
         }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to be secure, scalable, and highly debuggable by adhering strictly to the core design principles, especially Authorization Independence and Structural Segregation.\n\n1.  **Authorization Independence (Denormalization Strategy):**\n    *   For **Listings**, each document in `/listings/{listingId}` contains `farmerId`. This denormalizes ownership, allowing security rules to directly check `request.auth.uid == resource.data.farmerId` for write operations without needing to fetch data from a parent `User` document. This eliminates expensive and potentially complex `get()` calls in rules.\n    *   For **Orders**, each document in `/orders/{orderId}` explicitly includes `farmerId`, `buyerId`, and `transporterId`. This critical denormalization allows rules to grant access (read/write) if the authenticated user's UID matches any of these IDs, making authorization decisions atomic to the `Order` document itself. This is vital for enabling secure transactions involving multiple parties.\n    *   For **SyncQueue**, the hierarchical path `/users/{userId}/syncQueue/{queueEntryId}` inherently provides authorization independence. The `userId` in the path segments directly corresponds to `request.auth.uid`, making rule evaluation (`request.auth.uid == userId`) straightforward and performant.\n\n2.  **QAPs (Queries as Authorization Primitives):**\n    *   **`/listings/{listingId}`:** This collection is designed for secure `list` operations by making listings generally readable by all authenticated users (acting as retailers browsing the marketplace). The security rule for reads will be `allow read: if request.auth != null;`. For writes, only the `farmerId` (owner) can modify, enforced by `allow write: if request.auth.uid == resource.data.farmerId;`. This segregation of read/write access enables efficient marketplace queries for retailers.\n    *   **`/orders/{orderId}`:** To support secure listing for farmers, retailers, and transporters, the `Order` documents contain `farmerId`, `buyerId`, and `transporterId`. Clients will issue queries filtered by their `uid` (e.g., `db.collection('orders').where('buyerId', '==', request.auth.uid)`). The security rules will then validate that the `request.auth.uid` matches *one of* the relevant ID fields (`resource.data.farmerId`, `resource.data.buyerId`, or `resource.data.transporterId`). This ensures that only authorized documents are returned, satisfying QAPs without `get()` calls.\n    *   **`/users/{userId}/syncQueue/{queueEntryId}`:** The path-based ownership means a client query to `/users/{request.auth.uid}/syncQueue` will inherently only request documents they are authorized to access. The security rule `allow read, write: if request.auth.uid == userId;` directly maps the authenticated user to the path, fulfilling QAPs for personal data.\n\n3.  **Structural Segregation:**\n    *   All documents within `/users/{userId}`, `/listings/{listingId}`, `/orders/{orderId}`, and `/users/{userId}/syncQueue/{queueEntryId}` share a homogeneous security posture, simplifying rule writing. For instance, `/listings` holds only 'available' or 'sold' listings which are generally visible, avoiding mixing public listings with private drafts that might have different access requirements. If drafts were needed, they would be in a separate, user-owned collection like `/users/{userId}/draftListings/{listingId}`.\n\nThis structure prioritizes clear ownership, explicit authorization fields within documents, and a predictable hierarchy to minimize rule complexity and maximize security and scalability."
+    ]
   }
 }
