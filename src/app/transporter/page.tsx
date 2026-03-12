@@ -35,7 +35,8 @@ import {
   Phone,
   Calendar,
   Package,
-  RefreshCcw
+  RefreshCcw,
+  Hash
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
@@ -47,13 +48,10 @@ export default function TransporterPage() {
   const { user, profile, isUserLoading } = useAuth();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [rejectedIds, setRejectedIds] = useState<string[]>([]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
 
-  // Broad query to avoid indexing issues during development
-  // We filter status in-memory for maximum reliability
   const allOrdersQuery = useMemoFirebase(() => {
     if (!firestore || !user || profile?.role !== 'transporter') return null;
     return collection(firestore, 'orders');
@@ -163,6 +161,7 @@ export default function TransporterPage() {
            <Badge variant={job.status === 'Delivered' ? "default" : "outline"} className="font-bold uppercase tracking-wider text-[10px]">
             {job.status}
            </Badge>
+           <span className="mt-3 text-[10px] font-code bg-muted px-2 py-0.5 rounded text-muted-foreground">ID: {job.id.split('_').pop()}</span>
         </div>
         <div className="flex-1 p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -275,9 +274,10 @@ export default function TransporterPage() {
                     <Table>
                       <TableHeader className="bg-primary/5">
                         <TableRow>
+                          <TableHead className="font-bold">ID</TableHead>
                           <TableHead className="font-bold">Order Detail</TableHead>
-                          <TableHead className="font-bold">Pickup From (Farmer)</TableHead>
-                          <TableHead className="font-bold">Deliver To (Retailer)</TableHead>
+                          <TableHead className="font-bold">Pickup Point</TableHead>
+                          <TableHead className="font-bold">Destination</TableHead>
                           <TableHead className="font-bold">Retailer Contact</TableHead>
                           <TableHead className="font-bold">Total Fare</TableHead>
                           <TableHead className="font-bold text-right">Actions</TableHead>
@@ -286,6 +286,9 @@ export default function TransporterPage() {
                       <TableBody>
                         {availableJobs.map((job: any) => (
                           <TableRow key={job.id} className="hover:bg-primary/5 transition-colors">
+                            <TableCell className="font-code text-[10px] text-muted-foreground">
+                               {job.id.split('_').pop()}
+                            </TableCell>
                             <TableCell>
                               <div className="flex flex-col">
                                 <span className="font-bold">{job.cropName}</span>
@@ -299,7 +302,7 @@ export default function TransporterPage() {
                                  </div>
                                  <div className="flex flex-col">
                                    <span className="font-medium text-sm">{job.farmerName || 'Regional Farm'}</span>
-                                   <span className="text-[10px] text-muted-foreground uppercase">Pickup Point</span>
+                                   <span className="text-[10px] text-muted-foreground uppercase">Pickup</span>
                                  </div>
                                </div>
                             </TableCell>
@@ -310,7 +313,7 @@ export default function TransporterPage() {
                                  </div>
                                  <div className="flex flex-col">
                                    <span className="font-medium text-sm">{job.deliveryAddress || 'Market Hub'}</span>
-                                   <span className="text-[10px] text-muted-foreground uppercase">Destination</span>
+                                   <span className="text-[10px] text-muted-foreground uppercase">Deliver</span>
                                  </div>
                                </div>
                             </TableCell>
