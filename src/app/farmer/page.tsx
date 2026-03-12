@@ -17,25 +17,22 @@ import {
   IndianRupee, 
   Weight, 
   CheckCircle2, 
-  History, 
   Mail, 
   RefreshCcw, 
   Loader2, 
   Sprout, 
   BarChart3, 
   LayoutGrid,
-  Lock,
   Leaf,
   Package,
   ShoppingBag,
-  Clock,
   Check
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, doc, serverTimestamp } from 'firebase/firestore';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, XAxis, YAxis } from "recharts";
 import { useToast } from '@/hooks/use-toast';
 
 const CropSymbol = ({ name, className }: { name: string; className?: string }) => {
@@ -101,10 +98,11 @@ export default function FarmerPage() {
     setIsRefreshing(false);
   };
 
-  const handleConfirmOrder = (orderId: string) => {
+  const handleConfirmOrder = (orderId: string, listingId: string) => {
     if (!firestore) return;
     setUpdatingId(orderId);
     
+    // Update order status
     const orderRef = doc(firestore, 'orders', orderId);
     updateDocumentNonBlocking(orderRef, {
       status: 'Accepted',
@@ -112,9 +110,18 @@ export default function FarmerPage() {
       updatedAt: serverTimestamp()
     });
 
+    // Also update listing status to 'Sold' to remove it from the marketplace
+    if (listingId) {
+      const listingRef = doc(firestore, 'listings', listingId);
+      updateDocumentNonBlocking(listingRef, {
+        status: 'Sold',
+        updatedAt: serverTimestamp()
+      });
+    }
+
     toast({
       title: "Order Confirmed",
-      description: "You have accepted this order.",
+      description: "You have accepted this order. The crop is now marked as Sold.",
     });
 
     setTimeout(() => setUpdatingId(null), 800);
@@ -205,7 +212,10 @@ export default function FarmerPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <Badge variant="outline" className="font-bold">{listing.quantity} Kg Stock</Badge>
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline" className="font-bold">{listing.quantity} Kg Stock</Badge>
+                      <Badge variant={listing.status === 'Available' ? 'default' : 'secondary'}>{listing.status}</Badge>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -254,7 +264,7 @@ export default function FarmerPage() {
                           
                           {(order.status === 'Pending' || order.status === 'Paid') && (
                             <Button 
-                              onClick={() => handleConfirmOrder(order.id)}
+                              onClick={() => handleConfirmOrder(order.id, order.listingId)}
                               className="w-full md:w-auto font-bold gap-2"
                               disabled={updatingId === order.id}
                             >
