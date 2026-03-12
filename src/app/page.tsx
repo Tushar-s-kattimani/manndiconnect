@@ -1,7 +1,6 @@
-
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '@/components/LanguageContext';
 import { useAuth } from '@/components/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -18,8 +17,13 @@ export default function Home() {
   const [step, setStep] = useState<'phone' | 'otp' | 'role'>('phone');
   const router = useRouter();
 
+  useEffect(() => {
+    if (user && user.role) {
+      router.push(`/${user.role}`);
+    }
+  }, [user, router]);
+
   if (user && user.role) {
-    router.push(`/${user.role}`);
     return null;
   }
 
