@@ -16,7 +16,6 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Search, 
   IndianRupee, 
-  Weight, 
   Mail, 
   RefreshCcw, 
   Loader2, 
@@ -59,7 +58,6 @@ export default function RetailerPage() {
 
   const marketplaceQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    // Fetch ALL available listings across all farmers for ALL retailers
     return query(
       collection(firestore, 'listings'), 
       where('status', '==', 'Available')
@@ -168,7 +166,7 @@ export default function RetailerPage() {
 
     toast({
       title: "Transport Requested",
-      description: `Order created and transport requested for ${listing.cropName}.`,
+      description: `Request sent to all transporters for ${listing.cropName}.`,
     });
 
     setTimeout(() => setRequestingTransportId(null), 1000);

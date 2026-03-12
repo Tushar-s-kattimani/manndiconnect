@@ -1,7 +1,7 @@
 
 "use client"
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useLanguage } from '@/components/LanguageContext';
 import { useAuth } from '@/components/AuthContext';
 import { Navbar } from '@/components/layout/Navbar';
@@ -12,18 +12,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Truck, 
   MapPin, 
-  Calendar, 
   IndianRupee, 
   MoveRight, 
-  Mail, 
-  RefreshCcw, 
   Loader2, 
   Briefcase, 
   ClipboardList,
   CheckCircle2,
-  Package,
   Navigation,
-  Clock
+  XCircle,
+  Check
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
@@ -32,42 +29,42 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function TransporterPage() {
   const { t } = useLanguage();
-  const { user, profile, isUserLoading, refreshProfile, logout } = useAuth();
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { user, profile, isUserLoading, refreshProfile } = useAuth();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [rejectedIds, setRejectedIds] = useState<string[]>([]);
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
 
-  // Query for Available Jobs (Not yet assigned) - Global for all transporters
+  // Query for Available Jobs (Not yet assigned) - Global broadcast
   const availableJobsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user || profile?.role !== 'transporter') return null;
     return query(
       collection(firestore, 'orders'), 
       where('status', '==', 'Pending Transport'),
       where('transporterId', '==', null)
     );
-  }, [firestore, user?.uid]);
+  }, [firestore, user?.uid, profile?.role]);
 
   // Query for My Active Jobs
   const activeJobsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user || profile?.role !== 'transporter') return null;
     return query(
       collection(firestore, 'orders'), 
       where('transporterId', '==', user.uid),
       where('status', 'in', ['Accepted', 'Confirmed'])
     );
-  }, [firestore, user?.uid]);
+  }, [firestore, user?.uid, profile?.role]);
 
   // Query for Delivered
   const deliveredJobsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user || profile?.role !== 'transporter') return null;
     return query(
       collection(firestore, 'orders'), 
       where('transporterId', '==', user.uid),
       where('status', '==', 'Delivered')
     );
-  }, [firestore, user?.uid]);
+  }, [firestore, user?.uid, profile?.role]);
 
   const { data: availableJobs, isLoading: isAvailableLoading } = useCollection(availableJobsQuery);
   const { data: activeJobs, isLoading: isActiveLoading } = useCollection(activeJobsQuery);
@@ -79,22 +76,45 @@ export default function TransporterPage() {
     }
   }, [user, isUserLoading, router]);
 
+  const handleAcceptJob = (jobId: string) => {
+    if (!user || !firestore) return;
+    setUpdatingId(jobId);
+    
+    const docRef = doc(firestore, 'orders', jobId);
+    updateDocumentNonBlocking(docRef, {
+      status: 'Accepted',
+      transporterId: user.uid,
+      transporterEmail: user.email,
+      transporterName: profile?.name || user.email?.split('@')[0],
+      updatedAt: serverTimestamp()
+    });
+
+    toast({
+      title: "Job Accepted",
+      description: "This job is now in your active list.",
+    });
+
+    setTimeout(() => setUpdatingId(null), 800);
+  };
+
+  const handleRejectJob = (jobId: string) => {
+    // Local rejection only hides it for this transporter session
+    setRejectedIds(prev => [...prev, jobId]);
+    toast({
+      title: "Job Rejected",
+      description: "This job will no longer show in your available list.",
+    });
+  };
+
   const handleUpdateStatus = (jobId: string, newStatus: string, successMsg: string) => {
     if (!user || !firestore) return;
     setUpdatingId(jobId);
     
     const docRef = doc(firestore, 'orders', jobId);
-    const updateData: any = {
+    updateDocumentNonBlocking(docRef, {
       status: newStatus,
       updatedAt: serverTimestamp()
-    };
-
-    if (newStatus === 'Accepted') {
-      updateData.transporterId = user.uid;
-      updateData.transporterEmail = user.email;
-    }
-
-    updateDocumentNonBlocking(docRef, updateData);
+    });
 
     toast({
       title: "Status Updated",
@@ -104,11 +124,10 @@ export default function TransporterPage() {
     setTimeout(() => setUpdatingId(null), 800);
   };
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await refreshProfile();
-    setIsRefreshing(false);
-  };
+  // Filter out locally rejected jobs
+  const displayAvailable = useMemo(() => {
+    return availableJobs?.filter(job => !rejectedIds.includes(job.id)) || [];
+  }, [availableJobs, rejectedIds]);
 
   if (isUserLoading || !user || !profile) {
     return (
@@ -118,7 +137,7 @@ export default function TransporterPage() {
     );
   }
 
-  const JobCard = ({ job }: { job: any }) => (
+  const JobCard = ({ job, isAvailable = false }: { job: any, isAvailable?: boolean }) => (
     <Card key={job.id} className="border-2 hover:border-primary transition-all overflow-hidden bg-white shadow-sm hover:shadow-md mb-4">
       <div className="flex flex-col md:flex-row">
         <div className="bg-primary/5 p-6 flex flex-col items-center justify-center md:border-r border-border min-w-[140px]">
@@ -132,7 +151,7 @@ export default function TransporterPage() {
              )}
            </div>
            <Badge variant={job.status === 'Delivered' ? "default" : "outline"} className="font-bold uppercase tracking-wider text-[10px]">
-            {job.status === 'Pending Transport' ? 'Available' : job.status}
+            {job.status === 'Pending Transport' ? 'Broadcast' : job.status}
            </Badge>
         </div>
         <div className="flex-1 p-6">
@@ -158,36 +177,50 @@ export default function TransporterPage() {
                 </span>
               </div>
             </div>
+            
             <div className="flex flex-row md:flex-col gap-2">
-               {job.status === 'Pending Transport' && (
-                 <Button 
-                   onClick={() => handleUpdateStatus(job.id, 'Accepted', 'Job moved to Pending Pickup.')} 
-                   className="flex-1 md:w-40 font-bold shadow-lg gap-2"
-                   disabled={updatingId === job.id}
-                 >
-                   {updatingId === job.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Briefcase className="h-4 w-4" />}
-                   Accept Job
-                 </Button>
+               {isAvailable ? (
+                 <>
+                   <Button 
+                     onClick={() => handleAcceptJob(job.id)} 
+                     className="flex-1 md:w-40 font-bold shadow-lg gap-2"
+                     disabled={updatingId === job.id}
+                   >
+                     {updatingId === job.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                     Accept
+                   </Button>
+                   <Button 
+                     onClick={() => handleRejectJob(job.id)} 
+                     variant="outline"
+                     className="flex-1 md:w-40 font-bold border-destructive text-destructive hover:bg-destructive/5 gap-2"
+                   >
+                     <XCircle className="h-4 w-4" />
+                     Reject
+                   </Button>
+                 </>
+               ) : (
+                 <>
+                   {job.status === 'Accepted' && (
+                     <Button 
+                       onClick={() => handleUpdateStatus(job.id, 'Confirmed', 'Transport confirmed. Item is in transit.')} 
+                       className="flex-1 md:w-40 font-bold shadow-lg gap-2 bg-secondary text-secondary-foreground"
+                       disabled={updatingId === job.id}
+                     >
+                       Confirm Pickup
+                     </Button>
+                   )}
+                   {job.status === 'Confirmed' && (
+                     <Button 
+                       onClick={() => handleUpdateStatus(job.id, 'Delivered', 'Order marked as delivered!')} 
+                       className="flex-1 md:w-40 font-bold shadow-lg gap-2"
+                       disabled={updatingId === job.id}
+                     >
+                       Mark Delivered
+                     </Button>
+                   )}
+                   <Button variant="outline" className="flex-1 md:w-40 font-bold border-2">Details</Button>
+                 </>
                )}
-               {job.status === 'Accepted' && (
-                 <Button 
-                   onClick={() => handleUpdateStatus(job.id, 'Confirmed', 'Transport confirmed. Item is in transit.')} 
-                   className="flex-1 md:w-40 font-bold shadow-lg gap-2 bg-secondary text-secondary-foreground"
-                   disabled={updatingId === job.id}
-                 >
-                   Confirm Pickup
-                 </Button>
-               )}
-               {job.status === 'Confirmed' && (
-                 <Button 
-                   onClick={() => handleUpdateStatus(job.id, 'Delivered', 'Order marked as delivered!')} 
-                   className="flex-1 md:w-40 font-bold shadow-lg gap-2"
-                   disabled={updatingId === job.id}
-                 >
-                   Mark Delivered
-                 </Button>
-               )}
-               <Button variant="outline" className="flex-1 md:w-40 font-bold border-2">Details</Button>
             </div>
           </div>
         </div>
@@ -213,7 +246,7 @@ export default function TransporterPage() {
         <Tabs defaultValue="available" className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-8 max-w-2xl">
             <TabsTrigger value="available" className="gap-2 font-bold">
-              <ClipboardList className="h-4 w-4" /> Available
+              <ClipboardList className="h-4 w-4" /> Available Jobs
             </TabsTrigger>
             <TabsTrigger value="active" className="gap-2 font-bold">
               <Navigation className="h-4 w-4" /> My Active Jobs
@@ -228,13 +261,13 @@ export default function TransporterPage() {
               <div className="flex items-center justify-center py-20"><Loader2 className="h-10 w-10 text-primary animate-spin" /></div>
             ) : (
               <div className="max-w-5xl">
-                {!availableJobs || availableJobs.length === 0 ? (
+                {displayAvailable.length === 0 ? (
                   <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed">
                     <h3 className="text-xl font-bold">No Jobs Available</h3>
-                    <p className="text-muted-foreground">Check back later for new transport requests.</p>
+                    <p className="text-muted-foreground">Check back later for new transport requests from retailers.</p>
                   </div>
                 ) : (
-                  availableJobs.map((job: any) => <JobCard key={job.id} job={job} />)
+                  displayAvailable.map((job: any) => <JobCard key={job.id} job={job} isAvailable={true} />)
                 )}
               </div>
             )}
@@ -248,7 +281,7 @@ export default function TransporterPage() {
                 {!activeJobs || activeJobs.length === 0 ? (
                   <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed">
                     <h3 className="text-xl font-bold">No Active Jobs</h3>
-                    <p className="text-muted-foreground">Accept a job to see it here.</p>
+                    <p className="text-muted-foreground">Accept an available job to see it here.</p>
                   </div>
                 ) : (
                   activeJobs.map((job: any) => <JobCard key={job.id} job={job} />)
