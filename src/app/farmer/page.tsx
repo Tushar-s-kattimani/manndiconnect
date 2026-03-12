@@ -186,16 +186,25 @@ export default function FarmerPage() {
   };
 
   const handleCheckMarketRate = async () => {
-    if (!marketSearch) return;
+    const trimmedSearch = marketSearch.trim();
+    if (!trimmedSearch) {
+      toast({
+        title: "Empty Search",
+        description: "Please enter a crop name to check rates.",
+      });
+      return;
+    }
+
     setIsMarketLoading(true);
     try {
-      const data = await getMarketIntelligence({ cropName: marketSearch });
+      const data = await getMarketIntelligence({ cropName: trimmedSearch });
       setMarketData(data);
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Market Search Error:', error);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Failed to fetch market insights. Please try again.",
+        title: "Connection Error",
+        description: "Could not fetch market insights. This may be due to a slow network or high server load. Please try again.",
       });
     } finally {
       setIsMarketLoading(false);
@@ -426,7 +435,7 @@ export default function FarmerPage() {
                         onKeyDown={(e) => e.key === 'Enter' && handleCheckMarketRate()}
                       />
                     </div>
-                    <Button onClick={handleCheckMarketRate} disabled={isMarketLoading || !marketSearch} className="h-11 font-bold">
+                    <Button onClick={handleCheckMarketRate} disabled={isMarketLoading || !marketSearch.trim()} className="h-11 font-bold">
                       {isMarketLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check KA Rates"}
                     </Button>
                   </div>

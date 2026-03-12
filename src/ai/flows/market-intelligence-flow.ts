@@ -10,6 +10,9 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
+// Increase timeout for server action to handle slower mobile networks
+export const maxDuration = 60;
+
 const MarketIntelligenceInputSchema = z.object({
   cropName: z.string().describe('The name of the crop, fruit, or vegetable (e.g., Byadgi Chilli, Alphonso Mango, Onion).'),
 });
@@ -31,13 +34,27 @@ const MarketIntelligenceOutputSchema = z.object({
 export type MarketIntelligenceOutput = z.infer<typeof MarketIntelligenceOutputSchema>;
 
 export async function getMarketIntelligence(input: MarketIntelligenceInput): Promise<MarketIntelligenceOutput> {
-  return marketIntelligenceFlow(input);
+  try {
+    return await marketIntelligenceFlow(input);
+  } catch (error) {
+    console.error('Market Intelligence Error:', error);
+    throw error;
+  }
 }
 
 const prompt = ai.definePrompt({
   name: 'marketIntelligencePrompt',
   input: { schema: MarketIntelligenceInputSchema },
   output: { schema: MarketIntelligenceOutputSchema },
+  config: {
+    // Relax safety settings to avoid false positives with agricultural terms
+    safetySettings: [
+      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
+      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
+      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
+    ],
+  },
   prompt: `You are an expert agricultural market analyst specializing EXCLUSIVELY in the Karnataka market (APMC/Mandi rates). 
   Provide a realistic estimation of the current market price for the specified produce across MULTIPLE major locations in Karnataka.
   
@@ -59,7 +76,9 @@ const marketIntelligenceFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await prompt(input);
-    if (!output) throw new Error('Failed to generate market intelligence');
+    if (!output) {
+      throw new Error('The AI model was unable to generate a response. This might be due to safety filters or a temporary service issue.');
+    }
     return output;
   }
 );
