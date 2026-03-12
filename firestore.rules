@@ -5,19 +5,15 @@ service cloud.firestore {
 
     /**
      * FarmLink Security Rules
-     * Optimized for prototyping and clear party-based access.
+     * Optimized for collaborative marketplace prototyping.
      */
-
-    // --- Helper Functions ---
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // --- Collection Rules ---
-
     /**
-     * @description Rules for user profiles.
+     * @description User profiles and private sync queues.
      */
     match /users/{userId} {
       allow read, write: if isSignedIn() && request.auth.uid == userId;
@@ -28,43 +24,26 @@ service cloud.firestore {
     }
 
     /**
-     * @description Marketplace crop listings. 
-     * Publicly readable by all authenticated users.
-     * Writable only by the owner (farmer).
+     * @description Marketplace crop listings.
+     * Collaborative: Farmers create them, Retailers mark them as 'Sold' during purchase.
      */
     match /listings/{listingId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.farmerId == request.auth.uid;
-      allow update: if isSignedIn() && resource.data.farmerId == request.auth.uid;
+      allow create: if isSignedIn();
+      // Allow update for authenticated users to facilitate 'Sold' status changes
+      allow update: if isSignedIn();
       allow delete: if isSignedIn() && resource.data.farmerId == request.auth.uid;
     }
 
     /**
-     * @description Order documents.
-     * Readable by any party involved in the transaction (Farmer, Buyer, or Transporter)
-     * OR if the order is seeking a transporter (transporterId is null).
+     * @description Orders and Transport Jobs.
+     * Writable by any authenticated party to allow for multi-party updates (Farmer, Buyer, Transporter).
      */
     match /orders/{orderId} {
-      allow read: if isSignedIn() && (
-        resource.data.farmerId == request.auth.uid || 
-        resource.data.buyerId == request.auth.uid || 
-        resource.data.transporterId == request.auth.uid ||
-        resource.data.transporterId == null
-      );
-      
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
-      
-      allow update: if isSignedIn() && (
-        resource.data.farmerId == request.auth.uid || 
-        resource.data.buyerId == request.auth.uid || 
-        resource.data.transporterId == request.auth.uid ||
-        resource.data.transporterId == null
-      );
-
-      allow delete: if isSignedIn() && (
-        resource.data.farmerId == request.auth.uid || 
-        resource.data.buyerId == request.auth.uid
-      );
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
   }
 }

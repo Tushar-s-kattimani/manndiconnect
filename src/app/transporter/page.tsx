@@ -18,7 +18,6 @@ import {
   Mail, 
   RefreshCcw, 
   Loader2, 
-  Lock, 
   Briefcase, 
   ClipboardList,
   CheckCircle2,
@@ -50,23 +49,13 @@ export default function TransporterPage() {
     );
   }, [firestore, user?.uid, profile?.role]);
 
-  // Query for Pending Pickup (Assigned but not confirmed)
-  const pendingJobsQuery = useMemoFirebase(() => {
+  // Query for My Active Jobs (Pickup + Confirmed)
+  const activeJobsQuery = useMemoFirebase(() => {
     if (!firestore || !user || !profile || profile.role !== 'transporter') return null;
     return query(
       collection(firestore, 'orders'), 
       where('transporterId', '==', user.uid),
-      where('status', '==', 'Accepted')
-    );
-  }, [firestore, user?.uid, profile?.role]);
-
-  // Query for Confirmed (In Transit)
-  const confirmedJobsQuery = useMemoFirebase(() => {
-    if (!firestore || !user || !profile || profile.role !== 'transporter') return null;
-    return query(
-      collection(firestore, 'orders'), 
-      where('transporterId', '==', user.uid),
-      where('status', '==', 'Confirmed')
+      where('status', 'in', ['Accepted', 'Confirmed'])
     );
   }, [firestore, user?.uid, profile?.role]);
 
@@ -81,8 +70,7 @@ export default function TransporterPage() {
   }, [firestore, user?.uid, profile?.role]);
 
   const { data: availableJobs, isLoading: isAvailableLoading } = useCollection(availableJobsQuery);
-  const { data: pendingJobs, isLoading: isPendingLoading } = useCollection(pendingJobsQuery);
-  const { data: confirmedJobs, isLoading: isConfirmedLoading } = useCollection(confirmedJobsQuery);
+  const { data: activeJobs, isLoading: isActiveLoading } = useCollection(activeJobsQuery);
   const { data: deliveredJobs, isLoading: isDeliveredLoading } = useCollection(deliveredJobsQuery);
 
   useEffect(() => {
@@ -144,7 +132,6 @@ export default function TransporterPage() {
                 <CardTitle className="text-2xl font-black">Verify Your Email</CardTitle>
                 <CardDescription className="text-base mt-2">
                   Access to the Transporter Dashboard is restricted until your email is verified.
-                  Please check your inbox: <strong className="text-foreground">{user.email}</strong>
                 </CardDescription>
               </div>
             </CardHeader>
@@ -196,16 +183,10 @@ export default function TransporterPage() {
               </div>
               <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
                 <span className="flex items-center font-medium text-muted-foreground">
-                  <MapPin className="h-4 w-4 mr-1.5 text-primary" /> 
-                  Regional Delivery
-                </span>
-                <span className="flex items-center font-medium text-muted-foreground">
-                  <Calendar className="h-4 w-4 mr-1.5 text-primary" /> 
-                  {job.orderDate ? new Date(job.orderDate).toLocaleDateString() : 'TBD'}
+                  <MapPin className="h-4 w-4 mr-1.5 text-primary" /> Regional Delivery
                 </span>
                 <span className="flex items-center font-black text-primary text-base">
-                  <IndianRupee className="h-4 w-4 mr-1" /> 
-                  {job.totalPrice?.toLocaleString() || '0'} Pay
+                  <IndianRupee className="h-4 w-4 mr-1" /> {job.totalPrice?.toLocaleString() || '0'}
                 </span>
               </div>
             </div>
@@ -223,10 +204,9 @@ export default function TransporterPage() {
                {job.status === 'Accepted' && (
                  <Button 
                    onClick={() => handleUpdateStatus(job.id, 'Confirmed', 'Transport confirmed. Item is in transit.')} 
-                   className="flex-1 md:w-40 font-bold shadow-lg gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/90"
+                   className="flex-1 md:w-40 font-bold shadow-lg gap-2 bg-secondary text-secondary-foreground"
                    disabled={updatingId === job.id}
                  >
-                   {updatingId === job.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
                    Confirm Pickup
                  </Button>
                )}
@@ -236,7 +216,6 @@ export default function TransporterPage() {
                    className="flex-1 md:w-40 font-bold shadow-lg gap-2"
                    disabled={updatingId === job.id}
                  >
-                   {updatingId === job.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                    Mark Delivered
                  </Button>
                )}
@@ -255,7 +234,7 @@ export default function TransporterPage() {
         <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-black font-headline text-primary tracking-tight">Logistics Center</h1>
-            <p className="text-muted-foreground font-medium">Managing transport for: <span className="text-foreground">{user.email}</span></p>
+            <p className="text-muted-foreground font-medium">Verified Transporter: <span className="text-foreground">{user.email}</span></p>
           </div>
           <div className="bg-primary/5 px-4 py-2 rounded-xl border-2 border-primary/10">
             <span className="text-xs font-black uppercase tracking-widest text-primary block">Completed Earnings</span>
@@ -264,18 +243,15 @@ export default function TransporterPage() {
         </div>
 
         <Tabs defaultValue="available" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 mb-8 max-w-4xl">
+          <TabsList className="grid w-full grid-cols-3 mb-8 max-w-2xl">
             <TabsTrigger value="available" className="gap-2 font-bold">
               <ClipboardList className="h-4 w-4" /> Available
             </TabsTrigger>
-            <TabsTrigger value="pending" className="gap-2 font-bold">
-              <Package className="h-4 w-4" /> Pending
-            </TabsTrigger>
-            <TabsTrigger value="confirmed" className="gap-2 font-bold">
-              <Navigation className="h-4 w-4" /> Confirmed
+            <TabsTrigger value="active" className="gap-2 font-bold">
+              <Navigation className="h-4 w-4" /> My Active Jobs
             </TabsTrigger>
             <TabsTrigger value="delivered" className="gap-2 font-bold">
-              <CheckCircle2 className="h-4 w-4" /> Delivered
+              <CheckCircle2 className="h-4 w-4" /> History
             </TabsTrigger>
           </TabsList>
 
@@ -285,7 +261,10 @@ export default function TransporterPage() {
             ) : (
               <div className="max-w-5xl">
                 {!availableJobs || availableJobs.length === 0 ? (
-                  <EmptyState icon={<ClipboardList className="h-10 w-10" />} title="No Jobs Available" desc="Check back later for new transport requests." />
+                  <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed">
+                    <h3 className="text-xl font-bold">No Jobs Available</h3>
+                    <p className="text-muted-foreground">Check back later for new transport requests.</p>
+                  </div>
                 ) : (
                   availableJobs.map((job: any) => <JobCard key={job.id} job={job} />)
                 )}
@@ -293,29 +272,18 @@ export default function TransporterPage() {
             )}
           </TabsContent>
 
-          <TabsContent value="pending">
-            {isPendingLoading ? (
+          <TabsContent value="active">
+            {isActiveLoading ? (
               <div className="flex items-center justify-center py-20"><Loader2 className="h-10 w-10 text-primary animate-spin" /></div>
             ) : (
               <div className="max-w-5xl">
-                {!pendingJobs || pendingJobs.length === 0 ? (
-                  <EmptyState icon={<Package className="h-10 w-10" />} title="Nothing Pending" desc="Accept a job to see it here." />
+                {!activeJobs || activeJobs.length === 0 ? (
+                  <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed">
+                    <h3 className="text-xl font-bold">No Active Jobs</h3>
+                    <p className="text-muted-foreground">Accept a job to see it here.</p>
+                  </div>
                 ) : (
-                  pendingJobs.map((job: any) => <JobCard key={job.id} job={job} />)
-                )}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="confirmed">
-            {isConfirmedLoading ? (
-              <div className="flex items-center justify-center py-20"><Loader2 className="h-10 w-10 text-primary animate-spin" /></div>
-            ) : (
-              <div className="max-w-5xl">
-                {!confirmedJobs || confirmedJobs.length === 0 ? (
-                  <EmptyState icon={<Navigation className="h-10 w-10" />} title="Nothing in Transit" desc="Confirm pickup for a job to track it here." />
-                ) : (
-                  confirmedJobs.map((job: any) => <JobCard key={job.id} job={job} />)
+                  activeJobs.map((job: any) => <JobCard key={job.id} job={job} />)
                 )}
               </div>
             )}
@@ -327,7 +295,9 @@ export default function TransporterPage() {
             ) : (
               <div className="max-w-5xl">
                 {!deliveredJobs || deliveredJobs.length === 0 ? (
-                  <EmptyState icon={<CheckCircle2 className="h-10 w-10" />} title="No Completed Deliveries" desc="Delivered jobs will appear here for your records." />
+                  <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed">
+                    <h3 className="text-xl font-bold">No Completed Jobs</h3>
+                  </div>
                 ) : (
                   deliveredJobs.map((job: any) => <JobCard key={job.id} job={job} />)
                 )}
@@ -336,18 +306,6 @@ export default function TransporterPage() {
           </TabsContent>
         </Tabs>
       </main>
-    </div>
-  );
-}
-
-function EmptyState({ icon, title, desc }: { icon: React.ReactNode, title: string, desc: string }) {
-  return (
-    <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed flex flex-col items-center gap-4">
-      <div className="bg-muted p-4 rounded-full text-muted-foreground">{icon}</div>
-      <div>
-        <h3 className="text-xl font-bold">{title}</h3>
-        <p className="text-muted-foreground">{desc}</p>
-      </div>
     </div>
   );
 }
