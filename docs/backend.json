@@ -68,6 +68,14 @@
           "type": "number",
           "description": "The desired price per unit of the crop."
         },
+        "phoneNumber": {
+          "type": "string",
+          "description": "The contact phone number for this listing."
+        },
+        "location": {
+          "type": "string",
+          "description": "The pickup location for the crop."
+        },
         "status": {
           "type": "string",
           "description": "The current status of the listing (e.g., 'Available', 'Sold')."

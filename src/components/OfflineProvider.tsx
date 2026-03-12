@@ -13,6 +13,8 @@ interface Listing {
   cropName: string;
   quantity: number;
   pricePerUnit: number;
+  phoneNumber: string;
+  location: string;
   status: 'Available' | 'Sold' | 'pending';
   farmerId: string;
   farmerEmail: string;
@@ -21,8 +23,16 @@ interface Listing {
   updatedAt: any;
 }
 
+interface ListingFormData {
+  cropName: string;
+  quantity: string;
+  price: string;
+  phoneNumber: string;
+  location: string;
+}
+
 interface OfflineContextType {
-  addListing: (listing: { cropName: string, quantity: string, price: string }) => void;
+  addListing: (listing: ListingFormData) => void;
   syncData: () => Promise<void>;
   isOffline: boolean;
   hasUnsynced: boolean;
@@ -57,7 +67,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user]);
 
-  const addListing = (data: { cropName: string, quantity: string, price: string }) => {
+  const addListing = (data: ListingFormData) => {
     if (!user) return;
 
     const listingId = Math.random().toString(36).substr(2, 9);
@@ -66,6 +76,8 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       cropName: data.cropName,
       quantity: parseFloat(data.quantity),
       pricePerUnit: parseFloat(data.price),
+      phoneNumber: data.phoneNumber,
+      location: data.location,
       status: 'Available',
       farmerId: user.uid,
       farmerEmail: user.email || '',

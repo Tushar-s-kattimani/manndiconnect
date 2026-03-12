@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
 import { 
   Plus, 
   IndianRupee, 
@@ -26,7 +27,9 @@ import {
   Leaf,
   Package,
   ShoppingBag,
-  Check
+  Check,
+  Phone,
+  MapPin
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
@@ -56,6 +59,8 @@ export default function FarmerPage() {
     cropName: '',
     quantity: '',
     price: '',
+    phoneNumber: '',
+    location: '',
   });
 
   const myListingsQuery = useMemoFirebase(() => {
@@ -163,7 +168,7 @@ export default function FarmerPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     addListing(formData);
-    setFormData({ cropName: '', quantity: '', price: '' });
+    setFormData({ cropName: '', quantity: '', price: '', phoneNumber: '', location: '' });
     setIsAddOpen(false);
   };
 
@@ -182,10 +187,35 @@ export default function FarmerPage() {
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader><DialogTitle>{t('add_crop')}</DialogTitle></DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4 py-4">
-                <Input value={formData.cropName} onChange={(e) => setFormData({...formData, cropName: e.target.value})} placeholder="Crop Name" required />
-                <Input type="number" value={formData.quantity} onChange={(e) => setFormData({...formData, quantity: e.target.value})} placeholder="Quantity (Kg)" required />
-                <Input type="number" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} placeholder="Price / Kg" required />
-                <Button type="submit" className="w-full h-12 text-lg font-bold">Publish Listing</Button>
+                <div className="space-y-2">
+                  <Label>Crop Name</Label>
+                  <Input value={formData.cropName} onChange={(e) => setFormData({...formData, cropName: e.target.value})} placeholder="e.g. Wheat, Tomato" required />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Quantity (Kg)</Label>
+                    <Input type="number" value={formData.quantity} onChange={(e) => setFormData({...formData, quantity: e.target.value})} placeholder="Amount" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Price / Kg</Label>
+                    <Input type="number" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} placeholder="Price" required />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Phone Number</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input className="pl-10" value={formData.phoneNumber} onChange={(e) => setFormData({...formData, phoneNumber: e.target.value})} placeholder="Contact Number" required />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Pickup Location</Label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input className="pl-10" value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} placeholder="Village, City" required />
+                  </div>
+                </div>
+                <Button type="submit" className="w-full h-12 text-lg font-bold mt-4">Publish Listing</Button>
               </form>
             </DialogContent>
           </Dialog>
@@ -202,19 +232,23 @@ export default function FarmerPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {listings?.map((listing: any) => (
                 <Card key={listing.id} className="border-2 shadow-sm hover:shadow-md transition-shadow">
-                  <CardHeader className="flex flex-row items-center gap-4">
+                  <CardHeader className="flex flex-row items-center gap-4 pb-2">
                     <div className="bg-primary/10 p-3 rounded-xl">
                       <CropSymbol name={listing.cropName} className="h-6 w-6 text-primary" />
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <CardTitle className="text-lg">{listing.cropName}</CardTitle>
                       <CardDescription>₹{listing.pricePerUnit}/kg</CardDescription>
                     </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Badge variant="outline" className="font-bold">{listing.quantity} Kg Stock</Badge>
                       <Badge variant={listing.status === 'Available' ? 'default' : 'secondary'}>{listing.status}</Badge>
+                    </div>
+                    <div className="text-sm text-muted-foreground space-y-1">
+                      <div className="flex items-center gap-2"><MapPin className="h-3 w-3" /> {listing.location}</div>
+                      <div className="flex items-center gap-2"><Phone className="h-3 w-3" /> {listing.phoneNumber}</div>
                     </div>
                   </CardContent>
                 </Card>

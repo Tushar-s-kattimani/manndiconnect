@@ -25,7 +25,8 @@ import {
   ShoppingBag,
   LayoutGrid,
   User,
-  MapPin
+  MapPin,
+  Phone
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
@@ -218,9 +219,13 @@ export default function RetailerPage() {
                           <CardTitle className="text-lg mb-1 font-bold">{listing.cropName}</CardTitle>
                           <span className="text-xl font-black text-primary">₹{listing.pricePerUnit}/kg</span>
                         </CardHeader>
-                        <CardContent className="p-4 pt-2 space-y-3">
-                          <div className="flex items-center justify-between">
+                        <CardContent className="p-4 pt-2 space-y-3 flex-1">
+                          <div className="flex items-center justify-between mb-2">
                             <Badge variant="outline" className="font-bold">{listing.quantity} Kg Available</Badge>
+                          </div>
+                          <div className="text-sm text-muted-foreground space-y-1">
+                            <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-primary" /> {listing.location}</div>
+                            <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-primary" /> {listing.phoneNumber}</div>
                           </div>
                         </CardContent>
                         <CardFooter className="p-4 pt-0">
@@ -283,6 +288,13 @@ export default function RetailerPage() {
               <div className="bg-primary/5 p-4 rounded-xl flex justify-between items-center">
                 <span className="font-bold">Total Price</span>
                 <p className="text-2xl font-black text-primary">₹{(selectedListing?.quantity * selectedListing?.pricePerUnit).toLocaleString()}</p>
+              </div>
+              <div className="space-y-4">
+                 <h4 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Pickup Details</h4>
+                 <div className="grid grid-cols-1 gap-2 bg-background p-4 rounded-xl border">
+                    <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> <span className="text-sm font-medium">{selectedListing?.location}</span></div>
+                    <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-primary" /> <span className="text-sm font-medium">{selectedListing?.phoneNumber}</span></div>
+                 </div>
               </div>
               <RadioGroup defaultValue="cod" value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as 'cod' | 'online')}>
                 <div className="grid gap-4">
