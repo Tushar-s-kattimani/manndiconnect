@@ -3,10 +3,10 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useUser, useFirestore, useAuth as useFirebaseAuth } from '@/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 
-export type UserRole = 'farmer' | 'retailer' | 'transporter' | null;
+export type UserRole = 'farmer' | 'retailer' | null;
 
 interface UserProfile {
   uid: string;
@@ -45,7 +45,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           emailVerified: currentUser.emailVerified,
         });
       } else {
-        // Fallback for cases where profile might not be created yet
         setProfile({
           uid: currentUser.uid,
           email: currentUser.email,
@@ -73,9 +72,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshProfile = async () => {
     if (user) {
-      // Reload user from Firebase to get latest emailVerified status
       await user.reload();
-      await fetchProfile(auth.currentUser!);
+      if (auth.currentUser) {
+        await fetchProfile(auth.currentUser);
+      }
     }
   };
 

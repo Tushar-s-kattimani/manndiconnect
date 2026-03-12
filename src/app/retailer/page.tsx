@@ -8,14 +8,13 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { 
   Search, 
-  IndianRupee, 
   Mail, 
   RefreshCcw, 
   Loader2, 
@@ -26,9 +25,7 @@ import {
   ShoppingBag,
   LayoutGrid,
   User,
-  MapPin,
-  Truck,
-  Phone
+  MapPin
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
@@ -43,15 +40,13 @@ const CropSymbol = ({ name, className }: { name: string; className?: string }) =
 
 export default function RetailerPage() {
   const { t } = useLanguage();
-  const { user, profile, isUserLoading, refreshProfile, logout } = useAuth();
+  const { user, profile, isUserLoading, refreshProfile } = useAuth();
   const [search, setSearch] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   const [isBuyNowOpen, setIsBuyNowOpen] = useState(false);
-  const [isTransportOpen, setIsTransportOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'online'>('cod');
-  const [transportDetails, setTransportDetails] = useState({ address: '', phone: '' });
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const firestore = useFirestore();
@@ -94,12 +89,7 @@ export default function RetailerPage() {
     setIsBuyNowOpen(true);
   };
 
-  const handleTransportClick = (listing: any) => {
-    setSelectedListing(listing);
-    setIsTransportOpen(true);
-  };
-
-  const handlePlaceOrder = (type: 'direct' | 'transport') => {
+  const handlePlaceOrder = () => {
     if (!user || !firestore || !selectedListing) return;
     
     setIsPlacingOrder(true);
@@ -117,10 +107,8 @@ export default function RetailerPage() {
       quantityOrdered: selectedListing.quantity,
       agreedPricePerUnit: selectedListing.pricePerUnit,
       totalPrice: selectedListing.quantity * selectedListing.pricePerUnit,
-      status: type === 'transport' ? 'Pending Transport' : (paymentMethod === 'online' ? 'Paid' : 'Pending'),
-      paymentMethod: type === 'transport' ? 'Transport Request' : paymentMethod,
-      deliveryAddress: type === 'transport' ? transportDetails.address : 'Self Pickup',
-      contactPhone: type === 'transport' ? transportDetails.phone : '',
+      status: paymentMethod === 'online' ? 'Paid' : 'Pending',
+      paymentMethod: paymentMethod,
       orderDate: new Date().toISOString(),
       updatedAt: serverTimestamp()
     };
@@ -132,15 +120,13 @@ export default function RetailerPage() {
     updateDocumentNonBlocking(listingRef, { status: 'Sold', updatedAt: serverTimestamp() });
 
     toast({
-      title: type === 'transport' ? "Transport Requested" : "Order Placed",
-      description: `Your request for ${selectedListing.cropName} has been processed.`,
+      title: "Order Placed",
+      description: `Your order for ${selectedListing.cropName} has been processed.`,
     });
 
     setIsBuyNowOpen(false);
-    setIsTransportOpen(false);
     setIsPlacingOrder(false);
     setSelectedListing(null);
-    setTransportDetails({ address: '', phone: '' });
   };
 
   if (isUserLoading || !user || !profile) {
@@ -237,11 +223,8 @@ export default function RetailerPage() {
                             <Badge variant="outline" className="font-bold">{listing.quantity} Kg Available</Badge>
                           </div>
                         </CardContent>
-                        <CardFooter className="p-4 pt-0 flex flex-col gap-2">
+                        <CardFooter className="p-4 pt-0">
                           <Button onClick={() => handleBuyNowClick(listing)} className="w-full font-bold h-10 shadow-sm">Buy Now</Button>
-                          <Button onClick={() => handleTransportClick(listing)} variant="outline" className="w-full font-bold h-10 gap-2 border-primary text-primary">
-                            <Truck className="h-4 w-4" /> Transport
-                          </Button>
                         </CardFooter>
                       </Card>
                     ))
@@ -280,11 +263,6 @@ export default function RetailerPage() {
                              <span className="font-bold">Total Amount</span>
                              <span className="font-black text-primary text-xl">₹{order.totalPrice?.toLocaleString()}</span>
                           </div>
-                          {order.deliveryAddress && (
-                            <div className="text-sm font-medium flex items-center gap-2">
-                              <MapPin className="h-4 w-4 text-primary" /> {order.deliveryAddress}
-                            </div>
-                          )}
                         </CardContent>
                       </Card>
                     ))
@@ -326,57 +304,8 @@ export default function RetailerPage() {
               </RadioGroup>
             </div>
             <DialogFooter>
-              <Button onClick={() => handlePlaceOrder('direct')} className="w-full h-12 text-lg font-bold" disabled={isPlacingOrder}>
+              <Button onClick={handlePlaceOrder} className="w-full h-12 text-lg font-bold" disabled={isPlacingOrder}>
                 Confirm Order
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Transport Request Dialog */}
-        <Dialog open={isTransportOpen} onOpenChange={setIsTransportOpen}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-black">Request Transport</DialogTitle>
-              <DialogDescription>Enter delivery details for {selectedListing?.cropName}</DialogDescription>
-            </DialogHeader>
-            <div className="py-4 space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="address">Delivery Place / Village</Label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    id="address" 
-                    placeholder="e.g. Rampur Village Hub" 
-                    className="pl-10"
-                    value={transportDetails.address}
-                    onChange={(e) => setTransportDetails({...transportDetails, address: e.target.value})}
-                    required 
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Contact Phone Number</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    id="phone" 
-                    placeholder="Your contact number" 
-                    className="pl-10"
-                    value={transportDetails.phone}
-                    onChange={(e) => setTransportDetails({...transportDetails, phone: e.target.value})}
-                    required 
-                  />
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button 
-                onClick={() => handlePlaceOrder('transport')} 
-                className="w-full h-12 text-lg font-bold gap-2" 
-                disabled={isPlacingOrder || !transportDetails.address || !transportDetails.phone}
-              >
-                <Truck className="h-5 w-5" /> Broadcast Job
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -5,7 +5,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
-      "description": "Represents a user of the FarmLink application, who can be a Farmer, Retailer, or Transporter.",
+      "description": "Represents a user of the FarmLink application, who can be a Farmer or Retailer.",
       "properties": {
         "id": {
           "type": "string",
@@ -17,7 +17,7 @@
         },
         "role": {
           "type": "string",
-          "description": "The role of the user within the application (e.g., 'Farmer', 'Retailer', 'Transporter')."
+          "description": "The role of the user within the application (e.g., 'Farmer', 'Retailer')."
         },
         "createdAt": {
           "type": "string",
@@ -98,7 +98,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Order",
       "type": "object",
-      "description": "Represents an order or transport request placed by a Retailer.",
+      "description": "Represents an order placed by a Retailer.",
       "properties": {
         "id": {
           "type": "string",
@@ -116,21 +116,9 @@
           "type": "string",
           "description": "Reference to the User (Retailer) buying the crop."
         },
-        "transporterId": {
-          "type": "string",
-          "description": "Reference to the Transporter claiming the job."
-        },
-        "deliveryAddress": {
-          "type": "string",
-          "description": "The address or village for delivery."
-        },
-        "contactPhone": {
-          "type": "string",
-          "description": "The contact phone number for the order."
-        },
         "status": {
           "type": "string",
-          "description": "The current status (e.g., 'Pending', 'Pending Transport', 'Accepted', 'Delivered')."
+          "description": "The current status (e.g., 'Pending', 'Accepted', 'Delivered')."
         }
       },
       "required": [
@@ -177,7 +165,7 @@
           "schema": {
             "$ref": "#/backend/entities/Order"
           },
-          "description": "Manages orders and transport requests."
+          "description": "Manages orders between farmers and retailers."
         }
       }
     ]
