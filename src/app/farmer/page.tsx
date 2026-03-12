@@ -30,7 +30,11 @@ import {
   Check,
   Phone,
   MapPin,
-  Navigation
+  Navigation,
+  Search,
+  TrendingUp,
+  TrendingDown,
+  Minus
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
@@ -38,6 +42,7 @@ import { collection, query, where, doc, serverTimestamp } from 'firebase/firesto
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Bar, BarChart, XAxis, YAxis } from "recharts";
 import { useToast } from '@/hooks/use-toast';
+import { getMarketIntelligence, type MarketIntelligenceOutput } from '@/ai/flows/market-intelligence-flow';
 
 const CropSymbol = ({ name, className }: { name: string; className?: string }) => {
   const n = name.toLowerCase();
@@ -64,6 +69,11 @@ export default function FarmerPage() {
     phoneNumber: '',
     location: '',
   });
+
+  // Market Intelligence State
+  const [marketSearch, setMarketSearch] = useState('');
+  const [marketData, setMarketData] = useState<MarketIntelligenceOutput | null>(null);
+  const [isMarketLoading, setIsMarketLoading] = useState(false);
 
   const myListingsQuery = useMemoFirebase(() => {
     if (!firestore || !user || !profile || profile.role !== 'farmer') return null;
@@ -119,7 +129,6 @@ export default function FarmerPage() {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         try {
-          // Use a free reverse geocoding API to get a readable address
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`
           );
@@ -132,7 +141,6 @@ export default function FarmerPage() {
             description: "Location field updated successfully.",
           });
         } catch (error) {
-          // Fallback to coordinates if API fails
           setFormData(prev => ({ ...prev, location: `${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}` }));
         } finally {
           setIsLocating(false);
@@ -153,7 +161,6 @@ export default function FarmerPage() {
     if (!firestore) return;
     setUpdatingId(orderId);
     
-    // Update order status
     const orderRef = doc(firestore, 'orders', orderId);
     updateDocumentNonBlocking(orderRef, {
       status: 'Accepted',
@@ -161,7 +168,6 @@ export default function FarmerPage() {
       updatedAt: serverTimestamp()
     });
 
-    // Also update listing status to 'Sold' to remove it from the marketplace
     if (listingId) {
       const listingRef = doc(firestore, 'listings', listingId);
       updateDocumentNonBlocking(listingRef, {
@@ -176,6 +182,23 @@ export default function FarmerPage() {
     });
 
     setTimeout(() => setUpdatingId(null), 800);
+  };
+
+  const handleCheckMarketRate = async () => {
+    if (!marketSearch) return;
+    setIsMarketLoading(true);
+    try {
+      const data = await getMarketIntelligence({ cropName: marketSearch, location: profile?.location });
+      setMarketData(data);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch market insights. Please try again.",
+      });
+    } finally {
+      setIsMarketLoading(false);
+    }
   };
 
   if (isUserLoading || !user || !profile) {
@@ -280,9 +303,10 @@ export default function FarmerPage() {
         </div>
 
         <Tabs defaultValue="grid" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8 max-w-[600px]">
+          <TabsList className="grid w-full grid-cols-4 mb-8 max-w-[800px]">
             <TabsTrigger value="grid" className="gap-2 font-bold"><LayoutGrid className="h-4 w-4" /> Listings</TabsTrigger>
             <TabsTrigger value="orders" className="gap-2 font-bold"><Package className="h-4 w-4" /> Orders</TabsTrigger>
+            <TabsTrigger value="market" className="gap-2 font-bold"><TrendingUp className="h-4 w-4" /> Market Rates</TabsTrigger>
             <TabsTrigger value="stats" className="gap-2 font-bold"><BarChart3 className="h-4 w-4" /> Analytics</TabsTrigger>
           </TabsList>
 
@@ -375,6 +399,77 @@ export default function FarmerPage() {
                     </div>
                   </Card>
                 ))
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="market">
+            <div className="max-w-4xl mx-auto space-y-6">
+              <Card className="border-2 border-primary/20 shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-6 w-6 text-primary" />
+                    Market Intelligence
+                  </CardTitle>
+                  <CardDescription>Get AI-powered Mandi rate estimations for any crop.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                        placeholder="Search crop name (e.g. Wheat, Basmati Rice)..." 
+                        className="pl-10 h-11"
+                        value={marketSearch}
+                        onChange={(e) => setMarketSearch(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleCheckMarketRate()}
+                      />
+                    </div>
+                    <Button onClick={handleCheckMarketRate} disabled={isMarketLoading || !marketSearch} className="h-11 font-bold">
+                      {isMarketLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check Rate"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {marketData && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4">
+                  <Card className="border-2 border-primary bg-primary/5">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Estimated Mandi Rate</CardTitle>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-4xl font-black text-primary">₹{marketData.estimatedPriceRange.average}</span>
+                        <span className="text-sm font-medium text-muted-foreground">per Kg</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex justify-between items-center text-sm font-medium">
+                        <span>Range: ₹{marketData.estimatedPriceRange.min} - ₹{marketData.estimatedPriceRange.max}</span>
+                        <Badge variant="outline" className="gap-1 bg-white">
+                          {marketData.trend === 'Rising' && <TrendingUp className="h-3 w-3 text-green-500" />}
+                          {marketData.trend === 'Falling' && <TrendingDown className="h-3 w-3 text-red-500" />}
+                          {marketData.trend === 'Stable' && <Minus className="h-3 w-3 text-blue-500" />}
+                          {marketData.trend}
+                        </Badge>
+                      </div>
+                      <div className="h-2 w-full bg-primary/20 rounded-full overflow-hidden">
+                        <div className="h-full bg-primary" style={{ width: '60%' }} />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-2">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Market Insights</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm font-medium leading-relaxed">{marketData.insight}</p>
+                      <div className="mt-4 text-[10px] text-muted-foreground flex items-center gap-1 uppercase tracking-widest font-bold">
+                        <RefreshCcw className="h-3 w-3" /> Updated {marketData.lastUpdated}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               )}
             </div>
           </TabsContent>
