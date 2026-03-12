@@ -9,23 +9,25 @@ import { useRouter } from 'next/navigation';
 
 export default function Home() {
   const { t } = useLanguage();
-  const { user, login } = useAuth();
+  const { user, profile, isUserLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (user && user.role) {
-      router.push(`/${user.role}`);
+    if (!isUserLoading && user && profile?.role) {
+      router.push(`/${profile.role}`);
     }
-  }, [user, router]);
+  }, [user, profile, isUserLoading, router]);
 
-  if (user && user.role) {
-    return null;
+  if (isUserLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse text-primary font-bold">Loading...</div>
+      </div>
+    );
   }
 
   const handleRoleSelect = (role: 'farmer' | 'retailer' | 'transporter') => {
-    // Automatically log in as a guest with the selected role
-    login('Guest', role);
-    router.push(`/${role}`);
+    router.push(`/auth/login?role=${role}`);
   };
 
   return (

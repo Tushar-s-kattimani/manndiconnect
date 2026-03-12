@@ -5,6 +5,7 @@ import {LanguageProvider} from '@/components/LanguageContext';
 import {AuthProvider} from '@/components/AuthContext';
 import {OfflineProvider} from '@/components/OfflineProvider';
 import {Toaster} from '@/components/ui/toaster';
+import {FirebaseClientProvider} from '@/firebase';
 
 export const metadata: Metadata = {
   title: 'FarmLink - Connecting Farmers & Retailers',
@@ -24,14 +25,16 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased bg-background text-foreground min-h-screen">
-        <LanguageProvider>
-          <AuthProvider>
-            <OfflineProvider>
-              {children}
-              <Toaster />
-            </OfflineProvider>
-          </AuthProvider>
-        </LanguageProvider>
+        <FirebaseClientProvider>
+          <LanguageProvider>
+            <AuthProvider>
+              <OfflineProvider>
+                {children}
+                <Toaster />
+              </OfflineProvider>
+            </AuthProvider>
+          </LanguageProvider>
+        </FirebaseClientProvider>
       </body>
     </html>
   );

@@ -1,22 +1,27 @@
 
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '@/components/LanguageContext';
 import { useAuth } from '@/components/AuthContext';
 import { useOffline } from '@/components/OfflineProvider';
 import { Navbar } from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, IndianRupee, Weight, CheckCircle2, History, Camera } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Plus, IndianRupee, Weight, CheckCircle2, History, Camera, Mail, RefreshCcw } from 'lucide-react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 export default function FarmerPage() {
   const { t } = useLanguage();
+  const { profile, isUserLoading, refreshProfile } = useAuth();
   const { listings, addListing } = useOffline();
+  const router = useRouter();
+  
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [formData, setFormData] = useState({
     cropName: '',
@@ -24,8 +29,19 @@ export default function FarmerPage() {
     price: '',
   });
 
+  useEffect(() => {
+    if (!isUserLoading && !profile) {
+      router.push('/');
+    }
+  }, [profile, isUserLoading, router]);
+
+  if (isUserLoading || !profile) return null;
+
+  const isVerified = profile.emailVerified;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isVerified) return;
     addListing(formData);
     setFormData({ cropName: '', quantity: '', price: '' });
     setIsAddOpen(false);
@@ -35,6 +51,19 @@ export default function FarmerPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main className="container mx-auto px-4 py-8">
+        {!isVerified && (
+          <Alert variant="destructive" className="mb-8 border-2">
+            <Mail className="h-5 w-5" />
+            <AlertTitle className="font-bold">Email Not Verified</AlertTitle>
+            <AlertDescription className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-2">
+              <span>Please verify your email address to start listing crops. Check your inbox for the verification link.</span>
+              <Button size="sm" variant="outline" className="gap-2 font-bold" onClick={refreshProfile}>
+                <RefreshCcw className="h-4 w-4" /> I've Verified
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-black font-headline text-primary">{t('my_listings')}</h1>
@@ -43,7 +72,7 @@ export default function FarmerPage() {
 
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
             <DialogTrigger asChild>
-              <Button className="h-12 px-6 rounded-full shadow-lg gap-2 text-lg font-bold">
+              <Button disabled={!isVerified} className="h-12 px-6 rounded-full shadow-lg gap-2 text-lg font-bold">
                 <Plus className="h-6 w-6" />
                 {t('add_crop')}
               </Button>
@@ -133,7 +162,7 @@ export default function FarmerPage() {
                    </Badge>
                 </div>
                 <CardHeader className="pb-2">
-                  <CardTitle className="flex justify-between items-center">
+                  <CardTitle className="flex justify-between items-center text-xl">
                     <span>{listing.cropName}</span>
                     <span className="text-primary font-bold">₹{listing.price}/kg</span>
                   </CardTitle>
@@ -143,7 +172,7 @@ export default function FarmerPage() {
                     <Weight className="h-4 w-4 mr-1" />
                     <span>{listing.quantity} Available</span>
                   </div>
-                  <Button variant="outline" className="w-full">View Details</Button>
+                  <Button variant="outline" className="w-full font-bold">View Details</Button>
                 </CardContent>
               </Card>
             ))

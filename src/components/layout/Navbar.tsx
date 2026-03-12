@@ -6,7 +6,7 @@ import { useLanguage } from '@/components/LanguageContext';
 import { useAuth } from '@/components/AuthContext';
 import { useOffline } from '@/components/OfflineProvider';
 import { Button } from '@/components/ui/button';
-import { Cloud, CloudOff, Globe, LogOut, RefreshCw, User } from 'lucide-react';
+import { Cloud, CloudOff, Globe, LogOut, RefreshCw, User, ShieldCheck, ShieldAlert } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,7 +16,7 @@ import {
 
 export function Navbar() {
   const { t, language, setLanguage } = useLanguage();
-  const { user, logout } = useAuth();
+  const { user, profile, logout } = useAuth();
   const { isOffline, syncData, hasUnsynced } = useOffline();
 
   return (
@@ -64,14 +64,19 @@ export function Navbar() {
           {user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full">
+                <Button variant="ghost" size="icon" className="rounded-full relative">
                   <User className="h-5 w-5" />
+                  {profile?.emailVerified ? (
+                    <ShieldCheck className="h-3 w-3 text-primary absolute -top-1 -right-1" />
+                  ) : (
+                    <ShieldAlert className="h-3 w-3 text-destructive absolute -top-1 -right-1" />
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <div className="p-2 text-sm font-medium border-b mb-1">
-                  {user.phone}
-                  <div className="text-xs text-muted-foreground capitalize">{user.role || 'Guest'}</div>
+                  <div className="truncate max-w-[150px]">{profile?.name || user.email}</div>
+                  <div className="text-xs text-muted-foreground capitalize">{profile?.role || 'Guest'}</div>
                 </div>
                 <DropdownMenuItem onClick={logout} className="text-destructive">
                   <LogOut className="h-4 w-4 mr-2" />
