@@ -66,7 +66,7 @@ export default function RetailerPage() {
   };
 
   const handleRequestTransport = (listing: any) => {
-    if (!user) return;
+    if (!user || !firestore) return;
     
     setRequestingTransportId(listing.id);
     
@@ -84,7 +84,7 @@ export default function RetailerPage() {
       status: 'Pending Transport',
       orderDate: new Date().toISOString(),
       updatedAt: serverTimestamp(),
-      transporterId: null // Explicitly null so transporters can find it
+      transporterId: null // Explicitly null allows transporters to query/find this job
     };
 
     const docRef = doc(firestore, 'orders', orderId);

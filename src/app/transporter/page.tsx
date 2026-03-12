@@ -35,11 +35,13 @@ export default function TransporterPage() {
   }, [firestore, user?.uid, profile?.role]);
 
   // Query for available jobs (pending transport, no transporter assigned yet)
+  // We explicitly filter for transporterId == null to match security rules
   const availableJobsQuery = useMemoFirebase(() => {
     if (!firestore || !user || profile?.role !== 'transporter') return null;
     return query(
       collection(firestore, 'orders'), 
       where('status', '==', 'Pending Transport'),
+      where('transporterId', '==', null),
       orderBy('orderDate', 'desc')
     );
   }, [firestore, user?.uid, profile?.role]);
@@ -60,7 +62,7 @@ export default function TransporterPage() {
   };
 
   const handleAcceptJob = (job: any) => {
-    if (!user) return;
+    if (!user || !firestore) return;
     setAcceptingId(job.id);
     
     const docRef = doc(firestore, 'orders', job.id);
