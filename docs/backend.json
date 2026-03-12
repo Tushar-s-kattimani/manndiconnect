@@ -5,7 +5,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
-      "description": "Represents a user of the FarmLink application, who can be a Farmer or Retailer.",
+      "description": "Represents a user of the FarmLink application, who can be a Farmer, Retailer, or Transporter.",
       "properties": {
         "id": {
           "type": "string",
@@ -17,7 +17,7 @@
         },
         "role": {
           "type": "string",
-          "description": "The role of the user within the application (e.g., 'Farmer', 'Retailer')."
+          "description": "The role of the user within the application (e.g., 'Farmer', 'Retailer', 'Transporter')."
         },
         "createdAt": {
           "type": "string",
@@ -51,6 +51,10 @@
         "farmerId": {
           "type": "string",
           "description": "Reference to the User who created this listing."
+        },
+        "farmerName": {
+          "type": "string",
+          "description": "The name of the farmer who created this listing."
         },
         "cropName": {
           "type": "string",
@@ -94,7 +98,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Order",
       "type": "object",
-      "description": "Represents an order placed by a Retailer for a specific crop listing.",
+      "description": "Represents an order or transport request placed by a Retailer.",
       "properties": {
         "id": {
           "type": "string",
@@ -112,9 +116,21 @@
           "type": "string",
           "description": "Reference to the User (Retailer) buying the crop."
         },
+        "transporterId": {
+          "type": "string",
+          "description": "Reference to the Transporter claiming the job."
+        },
+        "deliveryAddress": {
+          "type": "string",
+          "description": "The address or village for delivery."
+        },
+        "contactPhone": {
+          "type": "string",
+          "description": "The contact phone number for the order."
+        },
         "status": {
           "type": "string",
-          "description": "The current status of the order (e.g., 'Pending', 'Accepted', 'Paid')."
+          "description": "The current status (e.g., 'Pending', 'Pending Transport', 'Accepted', 'Delivered')."
         }
       },
       "required": [
@@ -161,7 +177,7 @@
           "schema": {
             "$ref": "#/backend/entities/Order"
           },
-          "description": "Manages orders placed by retailers."
+          "description": "Manages orders and transport requests."
         }
       }
     ]

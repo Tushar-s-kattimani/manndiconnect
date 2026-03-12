@@ -26,7 +26,9 @@ import {
   ShoppingBag,
   LayoutGrid,
   User,
-  MapPin
+  MapPin,
+  Truck,
+  Phone
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
@@ -46,8 +48,10 @@ export default function RetailerPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   const [isBuyNowOpen, setIsBuyNowOpen] = useState(false);
+  const [isTransportOpen, setIsTransportOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'online'>('cod');
+  const [transportDetails, setTransportDetails] = useState({ address: '', phone: '' });
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const firestore = useFirestore();
@@ -90,7 +94,12 @@ export default function RetailerPage() {
     setIsBuyNowOpen(true);
   };
 
-  const handlePlaceOrder = () => {
+  const handleTransportClick = (listing: any) => {
+    setSelectedListing(listing);
+    setIsTransportOpen(true);
+  };
+
+  const handlePlaceOrder = (type: 'direct' | 'transport') => {
     if (!user || !firestore || !selectedListing) return;
     
     setIsPlacingOrder(true);
@@ -108,8 +117,10 @@ export default function RetailerPage() {
       quantityOrdered: selectedListing.quantity,
       agreedPricePerUnit: selectedListing.pricePerUnit,
       totalPrice: selectedListing.quantity * selectedListing.pricePerUnit,
-      status: paymentMethod === 'online' ? 'Paid' : 'Pending',
-      paymentMethod: paymentMethod,
+      status: type === 'transport' ? 'Pending Transport' : (paymentMethod === 'online' ? 'Paid' : 'Pending'),
+      paymentMethod: type === 'transport' ? 'Transport Request' : paymentMethod,
+      deliveryAddress: type === 'transport' ? transportDetails.address : 'Self Pickup',
+      contactPhone: type === 'transport' ? transportDetails.phone : '',
       orderDate: new Date().toISOString(),
       updatedAt: serverTimestamp()
     };
@@ -121,13 +132,15 @@ export default function RetailerPage() {
     updateDocumentNonBlocking(listingRef, { status: 'Sold', updatedAt: serverTimestamp() });
 
     toast({
-      title: "Order Placed",
-      description: `Your order for ${selectedListing.cropName} has been placed.`,
+      title: type === 'transport' ? "Transport Requested" : "Order Placed",
+      description: `Your request for ${selectedListing.cropName} has been processed.`,
     });
 
     setIsBuyNowOpen(false);
+    setIsTransportOpen(false);
     setIsPlacingOrder(false);
     setSelectedListing(null);
+    setTransportDetails({ address: '', phone: '' });
   };
 
   if (isUserLoading || !user || !profile) {
@@ -145,23 +158,13 @@ export default function RetailerPage() {
         <main className="flex-1 flex items-center justify-center p-4">
           <Card className="w-full max-w-md border-2 shadow-xl">
             <CardHeader className="text-center space-y-4">
-              <div className="mx-auto bg-destructive/10 w-20 h-20 rounded-full flex items-center justify-center">
-                <Mail className="h-10 w-10 text-destructive" />
-              </div>
-              <div>
-                <CardTitle className="text-2xl font-black">Verify Your Email</CardTitle>
-                <CardDescription className="text-base mt-2">
-                  Please verify your email: <strong className="text-foreground">{user.email}</strong>
-                </CardDescription>
-              </div>
+              <Mail className="mx-auto h-10 w-10 text-destructive" />
+              <CardTitle className="text-2xl font-black">Verify Your Email</CardTitle>
             </CardHeader>
             <CardFooter className="flex flex-col gap-3">
               <Button onClick={handleRefresh} className="w-full h-12 font-bold text-lg gap-2" disabled={isRefreshing}>
                 {isRefreshing ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCcw className="h-5 w-5" />}
                 I Have Verified
-              </Button>
-              <Button variant="ghost" onClick={logout} className="w-full font-bold text-muted-foreground">
-                Logout
               </Button>
             </CardFooter>
           </Card>
@@ -233,12 +236,12 @@ export default function RetailerPage() {
                           <div className="flex items-center justify-between">
                             <Badge variant="outline" className="font-bold">{listing.quantity} Kg Available</Badge>
                           </div>
-                          <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-                             <MapPin className="h-2 w-2" /> Regional Farm Hub
-                          </div>
                         </CardContent>
-                        <CardFooter className="p-4 pt-0">
+                        <CardFooter className="p-4 pt-0 flex flex-col gap-2">
                           <Button onClick={() => handleBuyNowClick(listing)} className="w-full font-bold h-10 shadow-sm">Buy Now</Button>
+                          <Button onClick={() => handleTransportClick(listing)} variant="outline" className="w-full font-bold h-10 gap-2 border-primary text-primary">
+                            <Truck className="h-4 w-4" /> Transport
+                          </Button>
                         </CardFooter>
                       </Card>
                     ))
@@ -260,7 +263,7 @@ export default function RetailerPage() {
                     </div>
                   ) : (
                     orders.map((order: any) => (
-                      <Card key={order.id} className="border-2 bg-white shadow-sm hover:shadow-md transition-shadow">
+                      <Card key={order.id} className="border-2 bg-white shadow-sm">
                         <CardHeader>
                           <div className="flex justify-between items-center">
                             <CardTitle className="text-xl font-black">{order.cropName}</CardTitle>
@@ -270,8 +273,6 @@ export default function RetailerPage() {
                           </div>
                           <CardDescription>
                             {order.quantityOrdered} Kg ordered on {new Date(order.orderDate).toLocaleDateString()}
-                            <br />
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase">Seller: {order.farmerName || order.farmerEmail}</span>
                           </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-2">
@@ -279,10 +280,9 @@ export default function RetailerPage() {
                              <span className="font-bold">Total Amount</span>
                              <span className="font-black text-primary text-xl">₹{order.totalPrice?.toLocaleString()}</span>
                           </div>
-                          {order.paymentMethod && (
-                            <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase">
-                              {order.paymentMethod === 'online' ? <CreditCard className="h-3 w-3" /> : <Banknote className="h-3 w-3" />}
-                              Payment: {order.paymentMethod === 'online' ? 'Paid Online' : 'Cash on Delivery'}
+                          {order.deliveryAddress && (
+                            <div className="text-sm font-medium flex items-center gap-2">
+                              <MapPin className="h-4 w-4 text-primary" /> {order.deliveryAddress}
                             </div>
                           )}
                         </CardContent>
@@ -300,40 +300,83 @@ export default function RetailerPage() {
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle className="text-2xl font-black">Complete Purchase</DialogTitle>
-              <DialogDescription>
-                Buying <strong>{selectedListing?.quantity}Kg</strong> of {selectedListing?.cropName} from {selectedListing?.farmerName}
-              </DialogDescription>
             </DialogHeader>
             <div className="py-4 space-y-6">
-              <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex justify-between items-center">
-                <span className="font-bold text-muted-foreground">Total Price</span>
+              <div className="bg-primary/5 p-4 rounded-xl flex justify-between items-center">
+                <span className="font-bold">Total Price</span>
                 <p className="text-2xl font-black text-primary">₹{(selectedListing?.quantity * selectedListing?.pricePerUnit).toLocaleString()}</p>
               </div>
-              <div className="space-y-3">
-                <Label className="font-bold text-sm">Select Payment Method</Label>
-                <RadioGroup defaultValue="cod" value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as 'cod' | 'online')}>
-                  <div className="grid gap-4">
-                    <Label htmlFor="cod" className="flex items-center justify-between rounded-xl border-2 p-4 cursor-pointer hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <Banknote className="h-5 w-5 text-primary" />
-                        <p className="font-bold text-sm">Cash on Delivery</p>
-                      </div>
-                      <RadioGroupItem value="cod" id="cod" />
-                    </Label>
-                    <Label htmlFor="online" className="flex items-center justify-between rounded-xl border-2 p-4 cursor-pointer hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <CreditCard className="h-5 w-5 text-primary" />
-                        <p className="font-bold text-sm">Pay Online</p>
-                      </div>
-                      <RadioGroupItem value="online" id="online" />
-                    </Label>
-                  </div>
-                </RadioGroup>
+              <RadioGroup defaultValue="cod" value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as 'cod' | 'online')}>
+                <div className="grid gap-4">
+                  <Label htmlFor="cod" className="flex items-center justify-between rounded-xl border-2 p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <Banknote className="h-5 w-5 text-primary" />
+                      <p className="font-bold text-sm">Cash on Delivery</p>
+                    </div>
+                    <RadioGroupItem value="cod" id="cod" />
+                  </Label>
+                  <Label htmlFor="online" className="flex items-center justify-between rounded-xl border-2 p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <CreditCard className="h-5 w-5 text-primary" />
+                      <p className="font-bold text-sm">Pay Online</p>
+                    </div>
+                    <RadioGroupItem value="online" id="online" />
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+            <DialogFooter>
+              <Button onClick={() => handlePlaceOrder('direct')} className="w-full h-12 text-lg font-bold" disabled={isPlacingOrder}>
+                Confirm Order
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Transport Request Dialog */}
+        <Dialog open={isTransportOpen} onOpenChange={setIsTransportOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-black">Request Transport</DialogTitle>
+              <DialogDescription>Enter delivery details for {selectedListing?.cropName}</DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="address">Delivery Place / Village</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    id="address" 
+                    placeholder="e.g. Rampur Village Hub" 
+                    className="pl-10"
+                    value={transportDetails.address}
+                    onChange={(e) => setTransportDetails({...transportDetails, address: e.target.value})}
+                    required 
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Contact Phone Number</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    id="phone" 
+                    placeholder="Your contact number" 
+                    className="pl-10"
+                    value={transportDetails.phone}
+                    onChange={(e) => setTransportDetails({...transportDetails, phone: e.target.value})}
+                    required 
+                  />
+                </div>
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handlePlaceOrder} className="w-full h-12 text-lg font-bold" disabled={isPlacingOrder}>
-                {isPlacingOrder ? <Loader2 className="h-5 w-5 animate-spin" /> : "Confirm Order"}
+              <Button 
+                onClick={() => handlePlaceOrder('transport')} 
+                className="w-full h-12 text-lg font-bold gap-2" 
+                disabled={isPlacingOrder || !transportDetails.address || !transportDetails.phone}
+              >
+                <Truck className="h-5 w-5" /> Broadcast Job
               </Button>
             </DialogFooter>
           </DialogContent>

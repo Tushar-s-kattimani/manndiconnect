@@ -24,27 +24,22 @@ import {
   IndianRupee, 
   MoveRight, 
   Loader2, 
-  Briefcase, 
   ClipboardList,
   CheckCircle2,
   Navigation,
   XCircle,
   Check,
   User,
-  ShoppingBag,
   Phone,
-  Calendar,
   Package,
-  RefreshCcw,
   Hash
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 export default function TransporterPage() {
-  const { t } = useLanguage();
   const { user, profile, isUserLoading } = useAuth();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [rejectedIds, setRejectedIds] = useState<string[]>([]);
@@ -52,7 +47,6 @@ export default function TransporterPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  // Broad query to get all orders, filtering is done in memory to avoid index issues
   const allOrdersQuery = useMemoFirebase(() => {
     if (!firestore || !user || profile?.role !== 'transporter') return null;
     return collection(firestore, 'orders');
@@ -153,8 +147,6 @@ export default function TransporterPage() {
            <div className="bg-white p-3 rounded-2xl shadow-sm mb-3">
              {job.status === 'Delivered' ? (
                <CheckCircle2 className="h-8 w-8 text-primary" />
-             ) : job.status === 'Confirmed' ? (
-               <Navigation className="h-8 w-8 text-primary animate-pulse" />
              ) : (
                <Truck className="h-8 w-8 text-primary" />
              )}
@@ -162,9 +154,6 @@ export default function TransporterPage() {
            <Badge variant={job.status === 'Delivered' ? "default" : "outline"} className="font-bold uppercase tracking-wider text-[10px]">
             {job.status}
            </Badge>
-           <span className="mt-3 text-[10px] font-mono bg-muted px-2 py-0.5 rounded text-muted-foreground flex items-center gap-1">
-             <Hash className="h-2 w-2" /> {job.id.split('_').pop()?.toUpperCase()}
-           </span>
         </div>
         <div className="flex-1 p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -200,17 +189,13 @@ export default function TransporterPage() {
                   </div>
                 )}
               </div>
-
-              <div className="flex items-center font-black text-primary text-xl">
-                <IndianRupee className="h-5 w-5 mr-1" /> {job.totalPrice?.toLocaleString() || '0'}
-              </div>
             </div>
             
             <div className="flex flex-row md:flex-col gap-2">
                {job.status === 'Accepted' && (
                  <Button 
                    onClick={() => handleUpdateStatus(job.id, 'Confirmed', 'Transport confirmed. Item is in transit.')} 
-                   className="flex-1 md:w-40 font-bold shadow-lg gap-2 bg-secondary text-secondary-foreground"
+                   className="flex-1 md:w-40 font-bold shadow-lg"
                    disabled={updatingId === job.id}
                  >
                    Confirm Pickup
@@ -219,7 +204,7 @@ export default function TransporterPage() {
                {job.status === 'Confirmed' && (
                  <Button 
                    onClick={() => handleUpdateStatus(job.id, 'Delivered', 'Order marked as delivered!')} 
-                   className="flex-1 md:w-40 font-bold shadow-lg gap-2"
+                   className="flex-1 md:w-40 font-bold shadow-lg"
                    disabled={updatingId === job.id}
                  >
                    Mark Delivered
@@ -239,13 +224,7 @@ export default function TransporterPage() {
         <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-black font-headline text-primary tracking-tight">Logistics Center</h1>
-            <p className="text-muted-foreground font-medium">Verified Transporter Portal</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="bg-primary/5 px-4 py-2 rounded-xl border-2 border-primary/10 text-right">
-              <span className="text-xs font-black uppercase tracking-widest text-primary block">Completed Earnings</span>
-              <span className="text-xl font-black">₹{deliveredJobs?.reduce((acc: any, curr: any) => acc + (curr.totalPrice || 0), 0).toLocaleString()}</span>
-            </div>
+            <p className="text-muted-foreground font-medium">Manage broadcasts and deliveries</p>
           </div>
         </div>
 
@@ -270,7 +249,7 @@ export default function TransporterPage() {
                 {availableJobs.length === 0 ? (
                   <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed">
                     <h3 className="text-xl font-bold">No Jobs Available</h3>
-                    <p className="text-muted-foreground">When retailers broadcast transport requests, they will appear here.</p>
+                    <p className="text-muted-foreground">When retailers request transport, they will appear here.</p>
                   </div>
                 ) : (
                   <div className="bg-white rounded-xl border-2 shadow-sm overflow-hidden overflow-x-auto">
@@ -282,7 +261,6 @@ export default function TransporterPage() {
                           <TableHead className="font-bold">Pickup Point</TableHead>
                           <TableHead className="font-bold">Destination</TableHead>
                           <TableHead className="font-bold">Retailer Contact</TableHead>
-                          <TableHead className="font-bold">Total Fare</TableHead>
                           <TableHead className="font-bold text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -302,25 +280,15 @@ export default function TransporterPage() {
                               </div>
                             </TableCell>
                             <TableCell>
-                               <div className="flex items-center gap-2">
-                                 <div className="bg-primary/10 p-1.5 rounded-lg">
-                                   <MapPin className="h-3 w-3 text-primary" />
-                                 </div>
-                                 <div className="flex flex-col">
-                                   <span className="font-medium text-sm">{job.farmerName || 'Regional Farm'}</span>
-                                   <span className="text-[10px] text-muted-foreground uppercase">Pickup</span>
-                                 </div>
+                               <div className="flex items-center gap-2 text-sm">
+                                 <MapPin className="h-3 w-3 text-primary" />
+                                 <span>{job.farmerName || 'Regional Farm'}</span>
                                </div>
                             </TableCell>
                             <TableCell>
-                               <div className="flex items-center gap-2">
-                                 <div className="bg-accent/10 p-1.5 rounded-lg">
-                                   <Navigation className="h-3 w-3 text-primary" />
-                                 </div>
-                                 <div className="flex flex-col">
-                                   <span className="font-medium text-sm">{job.deliveryAddress || 'Market Hub'}</span>
-                                   <span className="text-[10px] text-muted-foreground uppercase">Deliver</span>
-                                 </div>
+                               <div className="flex items-center gap-2 text-sm">
+                                 <Navigation className="h-3 w-3 text-primary" />
+                                 <span>{job.deliveryAddress || 'Market Hub'}</span>
                                </div>
                             </TableCell>
                             <TableCell>
@@ -332,7 +300,6 @@ export default function TransporterPage() {
                                 </div>
                               </div>
                             </TableCell>
-                            <TableCell className="font-black text-primary text-lg whitespace-nowrap">₹{job.totalPrice?.toLocaleString()}</TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">
                                 <Button 
@@ -369,7 +336,6 @@ export default function TransporterPage() {
               {activeJobs.length === 0 ? (
                 <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed">
                   <h3 className="text-xl font-bold">No Active Jobs</h3>
-                  <p className="text-muted-foreground">Accept an available job from the list to see it here.</p>
                 </div>
               ) : (
                 activeJobs.map((job: any) => <JobCard key={job.id} job={job} />)
