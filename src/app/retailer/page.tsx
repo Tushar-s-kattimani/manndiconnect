@@ -41,11 +41,11 @@ export default function RetailerPage() {
   const firestore = useFirestore();
   const router = useRouter();
 
-  // Query for all available listings
+  // Query for all available listings - Only initialize if user is authenticated
   const marketplaceQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return query(collection(firestore, 'listings'), orderBy('createdAt', 'desc'));
-  }, [firestore]);
+  }, [firestore, user]);
 
   const { data: listings, isLoading: isDataLoading } = useCollection(marketplaceQuery);
 

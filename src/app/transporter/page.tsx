@@ -20,11 +20,11 @@ export default function TransporterPage() {
   const firestore = useFirestore();
   const router = useRouter();
 
-  // Query for transport-related orders (jobs)
+  // Query for transport-related orders (jobs) - Only initialize if user is authenticated
   const jobsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return query(collection(firestore, 'orders'), orderBy('orderDate', 'desc'));
-  }, [firestore]);
+  }, [firestore, user]);
 
   const { data: jobs, isLoading: isDataLoading } = useCollection(jobsQuery);
 
