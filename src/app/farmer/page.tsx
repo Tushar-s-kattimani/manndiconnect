@@ -28,13 +28,15 @@ import {
   Leaf,
   Package,
   ShoppingBag,
-  Clock
+  Clock,
+  Check
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { collection, query, where, doc, serverTimestamp } from 'firebase/firestore';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { useToast } from '@/hooks/use-toast';
 
 const CropSymbol = ({ name, className }: { name: string; className?: string }) => {
   const n = name.toLowerCase();
@@ -48,9 +50,11 @@ export default function FarmerPage() {
   const { addListing } = useOffline();
   const firestore = useFirestore();
   const router = useRouter();
+  const { toast } = useToast();
   
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     cropName: '',
     quantity: '',
@@ -95,6 +99,25 @@ export default function FarmerPage() {
     setIsRefreshing(true);
     await refreshProfile();
     setIsRefreshing(false);
+  };
+
+  const handleConfirmOrder = (orderId: string) => {
+    if (!firestore) return;
+    setUpdatingId(orderId);
+    
+    const orderRef = doc(firestore, 'orders', orderId);
+    updateDocumentNonBlocking(orderRef, {
+      status: 'Accepted',
+      acceptedDate: new Date().toISOString(),
+      updatedAt: serverTimestamp()
+    });
+
+    toast({
+      title: "Order Confirmed",
+      description: "You have accepted this order.",
+    });
+
+    setTimeout(() => setUpdatingId(null), 800);
   };
 
   if (isUserLoading || !user || !profile) {
@@ -171,35 +194,86 @@ export default function FarmerPage() {
           <TabsContent value="grid">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {listings?.map((listing: any) => (
-                <Card key={listing.id} className="border-2">
-                  <CardHeader>
-                    <div className="flex justify-between items-center">
-                      <CardTitle>{listing.cropName}</CardTitle>
-                      <span className="text-primary font-bold">₹{listing.pricePerUnit}/kg</span>
+                <Card key={listing.id} className="border-2 shadow-sm hover:shadow-md transition-shadow">
+                  <CardHeader className="flex flex-row items-center gap-4">
+                    <div className="bg-primary/10 p-3 rounded-xl">
+                      <CropSymbol name={listing.cropName} className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">{listing.cropName}</CardTitle>
+                      <CardDescription>₹{listing.pricePerUnit}/kg</CardDescription>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <Badge variant="outline">{listing.quantity} Kg Stock</Badge>
+                    <Badge variant="outline" className="font-bold">{listing.quantity} Kg Stock</Badge>
                   </CardContent>
                 </Card>
               ))}
+              {listings?.length === 0 && (
+                <div className="col-span-full py-20 text-center bg-white rounded-3xl border-2 border-dashed">
+                  <p className="text-muted-foreground font-bold">No active listings.</p>
+                </div>
+              )}
             </div>
           </TabsContent>
 
           <TabsContent value="orders">
             <div className="space-y-4">
-              {orders?.map((order: any) => (
-                <Card key={order.id} className="border-2">
-                  <CardHeader>
-                    <CardTitle className="text-xl font-black">{order.cropName}</CardTitle>
-                    <CardDescription>{order.quantityOrdered} Kg from {order.buyerEmail?.split('@')[0]}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="font-bold text-primary">Total Revenue: ₹{order.totalPrice?.toLocaleString()}</p>
-                    <Badge variant="secondary">{order.status}</Badge>
-                  </CardContent>
-                </Card>
-              ))}
+              {orders?.length === 0 ? (
+                <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed">
+                  <p className="text-muted-foreground font-bold">No incoming orders yet.</p>
+                </div>
+              ) : (
+                orders?.map((order: any) => (
+                  <Card key={order.id} className="border-2 shadow-sm overflow-hidden">
+                    <div className="flex flex-col md:flex-row">
+                      <div className="bg-primary/5 p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-border min-w-[150px]">
+                        <div className="bg-white p-3 rounded-2xl shadow-sm mb-3">
+                          <ShoppingBag className="h-8 w-8 text-primary" />
+                        </div>
+                        <Badge variant={order.status === 'Accepted' || order.status === 'Delivered' ? 'default' : 'secondary'} className="font-bold">
+                          {order.status}
+                        </Badge>
+                      </div>
+                      <div className="flex-1 p-6">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                          <div className="space-y-1">
+                            <CardTitle className="text-xl font-black">{order.cropName}</CardTitle>
+                            <CardDescription>
+                              Ordered by {order.buyerEmail?.split('@')[0]} • {new Date(order.orderDate).toLocaleDateString()}
+                            </CardDescription>
+                            <div className="flex gap-4 mt-2">
+                              <span className="text-sm font-bold flex items-center gap-1">
+                                <Weight className="h-3 w-3" /> {order.quantityOrdered} Kg
+                              </span>
+                              <span className="text-sm font-black text-primary flex items-center gap-1">
+                                <IndianRupee className="h-3 w-3" /> {order.totalPrice?.toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          {(order.status === 'Pending' || order.status === 'Paid') && (
+                            <Button 
+                              onClick={() => handleConfirmOrder(order.id)}
+                              className="w-full md:w-auto font-bold gap-2"
+                              disabled={updatingId === order.id}
+                            >
+                              {updatingId === order.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                              Confirm Order
+                            </Button>
+                          )}
+                          
+                          {order.status === 'Accepted' && (
+                            <div className="bg-primary/10 text-primary px-4 py-2 rounded-lg flex items-center gap-2 font-bold">
+                              <CheckCircle2 className="h-5 w-5" /> Confirmed
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))
+              )}
             </div>
           </TabsContent>
 
@@ -207,11 +281,22 @@ export default function FarmerPage() {
             <Card className="border-2">
               <CardHeader><CardTitle>Inventory Overview</CardTitle></CardHeader>
               <CardContent>
-                <div className="h-[300px] w-full mt-4">
-                  <ChartContainer config={chartConfig}>
-                    <BarChart data={chartData}><XAxis dataKey="cropName" /><YAxis /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="quantity" fill="var(--color-quantity)" /></BarChart>
-                  </ChartContainer>
-                </div>
+                {chartData.length > 0 ? (
+                  <div className="h-[300px] w-full mt-4">
+                    <ChartContainer config={chartConfig}>
+                      <BarChart data={chartData}>
+                        <XAxis dataKey="cropName" />
+                        <YAxis />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Bar dataKey="quantity" fill="var(--color-quantity)" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ChartContainer>
+                  </div>
+                ) : (
+                  <div className="py-20 text-center">
+                    <p className="text-muted-foreground">Add listings to see inventory analytics.</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
