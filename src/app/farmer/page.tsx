@@ -8,10 +8,9 @@ import { useOffline } from '@/components/OfflineProvider';
 import { Navbar } from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Plus, 
@@ -24,7 +23,8 @@ import {
   Loader2, 
   Image as ImageIcon, 
   BarChart3, 
-  LayoutGrid 
+  LayoutGrid,
+  Lock
 } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -41,12 +41,13 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 export default function FarmerPage() {
   const { t } = useLanguage();
-  const { user, isUserLoading, refreshProfile } = useAuth();
+  const { user, isUserLoading, refreshProfile, logout } = useAuth();
   const { addListing } = useOffline();
   const firestore = useFirestore();
   const router = useRouter();
   
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [formData, setFormData] = useState({
     cropName: '',
     quantity: '',
@@ -94,13 +95,68 @@ export default function FarmerPage() {
     }
   }, [user, isUserLoading, router]);
 
-  if (isUserLoading || !user) return null;
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshProfile();
+    setIsRefreshing(false);
+  };
 
-  const isVerified = user.emailVerified;
+  if (isUserLoading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-10 w-10 text-primary animate-spin" />
+      </div>
+    );
+  }
+
+  // Verification Gate
+  if (!user.emailVerified) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Navbar />
+        <main className="flex-1 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md border-2 shadow-xl">
+            <CardHeader className="text-center space-y-4">
+              <div className="mx-auto bg-destructive/10 w-20 h-20 rounded-full flex items-center justify-center">
+                <Mail className="h-10 w-10 text-destructive" />
+              </div>
+              <div>
+                <CardTitle className="text-2xl font-black">Verify Your Email</CardTitle>
+                <CardDescription className="text-base mt-2">
+                  Access to the Farmer Dashboard is restricted until your email is verified.
+                  Please check your inbox: <strong className="text-foreground">{user.email}</strong>
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 bg-muted rounded-xl flex items-start gap-3">
+                <Lock className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <p className="text-sm text-muted-foreground">
+                  Verification ensures the security of our agricultural marketplace and prevents fraudulent listings.
+                </p>
+              </div>
+            </CardContent>
+            <CardFooter className="flex flex-col gap-3">
+              <Button 
+                onClick={handleRefresh} 
+                className="w-full h-12 font-bold text-lg gap-2"
+                disabled={isRefreshing}
+              >
+                {isRefreshing ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCcw className="h-5 w-5" />}
+                I Have Verified
+              </Button>
+              <Button variant="ghost" onClick={logout} className="w-full font-bold text-muted-foreground">
+                Logout and Try Different Account
+              </Button>
+            </CardFooter>
+          </Card>
+        </main>
+      </div>
+    );
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isVerified) return;
     addListing(formData);
     setFormData({ cropName: '', quantity: '', price: '' });
     setIsAddOpen(false);
@@ -110,19 +166,6 @@ export default function FarmerPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main className="container mx-auto px-4 py-8">
-        {!isVerified && (
-          <Alert variant="destructive" className="mb-8 border-2">
-            <Mail className="h-5 w-5" />
-            <AlertTitle className="font-bold">Email Not Verified</AlertTitle>
-            <AlertDescription className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-2">
-              <span>Please verify your email address to start listing crops. We store data associated with your email for security.</span>
-              <Button size="sm" variant="outline" className="gap-2 font-bold" onClick={refreshProfile}>
-                <RefreshCcw className="h-4 w-4" /> I've Verified
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-black font-headline text-primary">{t('my_listings')}</h1>
@@ -131,7 +174,7 @@ export default function FarmerPage() {
 
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
             <DialogTrigger asChild>
-              <Button disabled={!isVerified} className="h-12 px-6 rounded-full shadow-lg gap-2 text-lg font-bold">
+              <Button className="h-12 px-6 rounded-full shadow-lg gap-2 text-lg font-bold">
                 <Plus className="h-6 w-6" />
                 {t('add_crop')}
               </Button>
@@ -333,7 +376,7 @@ export default function FarmerPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-black text-primary">
-                      {listings?.reduce((acc, curr) => acc + (curr.quantity || 0), 0).toLocaleString()} Kg
+                      {listings?.reduce((acc: number, curr: any) => acc + (curr.quantity || 0), 0).toLocaleString()} Kg
                     </div>
                   </CardContent>
                 </Card>

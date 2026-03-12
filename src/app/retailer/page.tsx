@@ -7,18 +7,18 @@ import { useAuth } from '@/components/AuthContext';
 import { Navbar } from '@/components/layout/Navbar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Search, Filter, IndianRupee, Weight, MapPin, Star, Mail, RefreshCcw, Loader2 } from 'lucide-react';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Search, Filter, IndianRupee, Weight, MapPin, Star, Mail, RefreshCcw, Loader2, Lock } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 
 export default function RetailerPage() {
   const { t } = useLanguage();
-  const { user, isUserLoading, refreshProfile } = useAuth();
+  const { user, isUserLoading, refreshProfile, logout } = useAuth();
   const [search, setSearch] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const firestore = useFirestore();
   const router = useRouter();
 
@@ -36,9 +36,65 @@ export default function RetailerPage() {
     }
   }, [user, isUserLoading, router]);
 
-  if (isUserLoading || !user) return null;
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshProfile();
+    setIsRefreshing(false);
+  };
 
-  const isVerified = user.emailVerified;
+  if (isUserLoading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-10 w-10 text-primary animate-spin" />
+      </div>
+    );
+  }
+
+  // Verification Gate
+  if (!user.emailVerified) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Navbar />
+        <main className="flex-1 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md border-2 shadow-xl">
+            <CardHeader className="text-center space-y-4">
+              <div className="mx-auto bg-destructive/10 w-20 h-20 rounded-full flex items-center justify-center">
+                <Mail className="h-10 w-10 text-destructive" />
+              </div>
+              <div>
+                <CardTitle className="text-2xl font-black">Verify Your Email</CardTitle>
+                <CardDescription className="text-base mt-2">
+                  Access to the Retailer Marketplace is restricted until your email is verified.
+                  Please check your inbox: <strong className="text-foreground">{user.email}</strong>
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 bg-muted rounded-xl flex items-start gap-3">
+                <Lock className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <p className="text-sm text-muted-foreground">
+                  Verification ensures the quality of our buyers and protects farmers from false orders.
+                </p>
+              </div>
+            </CardContent>
+            <CardFooter className="flex flex-col gap-3">
+              <Button 
+                onClick={handleRefresh} 
+                className="w-full h-12 font-bold text-lg gap-2"
+                disabled={isRefreshing}
+              >
+                {isRefreshing ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCcw className="h-5 w-5" />}
+                I Have Verified
+              </Button>
+              <Button variant="ghost" onClick={logout} className="w-full font-bold text-muted-foreground">
+                Logout and Try Different Account
+              </Button>
+            </CardFooter>
+          </Card>
+        </main>
+      </div>
+    );
+  }
 
   const filteredListings = listings?.filter(l => 
     l.cropName.toLowerCase().includes(search.toLowerCase())
@@ -48,19 +104,6 @@ export default function RetailerPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main className="container mx-auto px-4 py-8">
-        {!isVerified && (
-          <Alert variant="destructive" className="mb-8 border-2">
-            <Mail className="h-5 w-5" />
-            <AlertTitle className="font-bold">Email Not Verified</AlertTitle>
-            <AlertDescription className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-2">
-              <span>Please verify your email address to access the marketplace. Check your inbox: {user.email}</span>
-              <Button size="sm" variant="outline" className="gap-2 font-bold" onClick={refreshProfile}>
-                <RefreshCcw className="h-4 w-4" /> I've Verified
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-
         <div className="mb-8 space-y-6">
           <div>
             <h1 className="text-3xl font-black font-headline text-primary">{t('marketplace')}</h1>
@@ -90,11 +133,7 @@ export default function RetailerPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {!isVerified ? (
-              <div className="col-span-full py-20 text-center">
-                <p className="text-muted-foreground">Verify your email to view available listings.</p>
-              </div>
-            ) : filteredListings.length === 0 ? (
+            {filteredListings.length === 0 ? (
                <div className="col-span-full py-20 text-center">
                 <p className="text-muted-foreground font-bold">No crops found matching your search.</p>
               </div>
