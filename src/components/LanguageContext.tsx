@@ -15,10 +15,6 @@ interface Translations {
 export const translations: Translations = {
   app_name: { en: 'FarmLink', hi: 'फार्मलिंक' },
   welcome: { en: 'Welcome to FarmLink', hi: 'फार्मलिंक में आपका स्वागत है' },
-  login: { en: 'Login with Phone', hi: 'फोन से लॉगिन करें' },
-  phone_number: { en: 'Phone Number', hi: 'फ़ोन नंबर' },
-  enter_otp: { en: 'Enter OTP', hi: 'ओटीपी दर्ज करें' },
-  verify: { en: 'Verify & Continue', hi: 'सत्यापित करें' },
   select_role: { en: 'I am a...', hi: 'मैं एक हूँ...' },
   farmer: { en: 'Farmer', hi: 'किसान' },
   retailer: { en: 'Retailer', hi: 'रिटेलर' },

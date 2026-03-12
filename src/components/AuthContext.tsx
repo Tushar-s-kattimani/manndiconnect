@@ -13,7 +13,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (phone: string) => void;
+  login: (phone: string, role?: UserRole) => void;
   setRole: (role: UserRole) => void;
   logout: () => void;
   isAuthenticated: boolean;
@@ -31,18 +31,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const login = (phone: string) => {
-    const newUser = { phone, role: null, name: 'Farmer John' };
+  const login = (phone: string, role: UserRole = null) => {
+    const newUser = { 
+      phone, 
+      role, 
+      name: phone === 'Guest' ? 'Guest User' : 'Farmer John' 
+    };
     setUser(newUser);
     localStorage.setItem('farmlink_user', JSON.stringify(newUser));
   };
 
   const setRole = (role: UserRole) => {
-    if (user) {
-      const updatedUser = { ...user, role };
-      setUser(updatedUser);
+    setUser(prev => {
+      if (!prev) return null;
+      const updatedUser = { ...prev, role };
       localStorage.setItem('farmlink_user', JSON.stringify(updatedUser));
-    }
+      return updatedUser;
+    });
   };
 
   const logout = () => {
