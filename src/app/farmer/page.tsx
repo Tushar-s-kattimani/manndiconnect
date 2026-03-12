@@ -25,11 +25,14 @@ import {
   BarChart3, 
   LayoutGrid,
   Lock,
-  Leaf
+  Leaf,
+  Package,
+  ShoppingBag,
+  Clock
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 import {
   ChartContainer,
   ChartTooltip,
@@ -66,7 +69,14 @@ export default function FarmerPage() {
     return query(collection(firestore, 'listings'), where('farmerId', '==', user.uid));
   }, [firestore, user?.uid]);
 
+  // Query for orders where this user is the farmer
+  const myOrdersQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'orders'), where('farmerId', '==', user.uid));
+  }, [firestore, user?.uid]);
+
   const { data: listings, isLoading: isDataLoading } = useCollection(myListingsQuery);
+  const { data: orders, isLoading: isOrdersLoading } = useCollection(myOrdersQuery);
 
   // Chart Configuration
   const chartConfig = {
@@ -163,8 +173,8 @@ export default function FarmerPage() {
       <main className="container mx-auto px-4 py-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-black font-headline text-primary">{t('my_listings')}</h1>
-            <p className="text-muted-foreground">Logged in as: <span className="font-bold">{user.email}</span></p>
+            <h1 className="text-3xl font-black font-headline text-primary">Farmer Dashboard</h1>
+            <p className="text-muted-foreground">Managing harvest for: <span className="font-bold">{user.email}</span></p>
           </div>
 
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
@@ -187,7 +197,8 @@ export default function FarmerPage() {
                 </div>
                 <div className="grid gap-2">
                   <label className="text-sm font-bold">{t('crop_name')}</label>
-                  <Input 
+                  <input 
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     value={formData.cropName}
                     onChange={(e) => setFormData({...formData, cropName: e.target.value})}
                     placeholder="e.g. Wheat, Tomato" 
@@ -233,9 +244,12 @@ export default function FarmerPage() {
         </div>
 
         <Tabs defaultValue="grid" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8 max-w-[400px]">
+          <TabsList className="grid w-full grid-cols-3 mb-8 max-w-[600px]">
             <TabsTrigger value="grid" className="gap-2 font-bold">
               <LayoutGrid className="h-4 w-4" /> Listings
+            </TabsTrigger>
+            <TabsTrigger value="orders" className="gap-2 font-bold">
+              <Package className="h-4 w-4" /> Orders
             </TabsTrigger>
             <TabsTrigger value="stats" className="gap-2 font-bold">
               <BarChart3 className="h-4 w-4" /> Analytics
@@ -265,7 +279,7 @@ export default function FarmerPage() {
                           <CropSymbol name={listing.cropName} className="h-12 w-12 text-primary" />
                         </div>
                         <Badge className="absolute top-4 right-4 bg-primary">
-                          <CheckCircle2 className="h-3 w-3 mr-1" /> Verified
+                          <CheckCircle2 className="h-3 w-3 mr-1" /> Active
                         </Badge>
                       </div>
                       <CardHeader className="pb-2">
@@ -277,13 +291,77 @@ export default function FarmerPage() {
                       <CardContent>
                         <div className="flex items-center text-sm text-muted-foreground mb-4">
                           <Weight className="h-4 w-4 mr-1" />
-                          <span>{listing.quantity} Kg Available</span>
+                          <span>{listing.quantity} Kg Total Stock</span>
                         </div>
-                        <div className="text-xs text-muted-foreground italic mb-4">
-                          Owner: {listing.farmerEmail}
-                        </div>
-                        <Button variant="outline" className="w-full font-bold">View Details</Button>
+                        <Button variant="outline" className="w-full font-bold">Manage Listing</Button>
                       </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="orders">
+            {isOrdersLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="h-10 w-10 text-primary animate-spin" />
+              </div>
+            ) : (
+              <div className="space-y-4 max-w-5xl">
+                {!orders || orders.length === 0 ? (
+                  <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed flex flex-col items-center gap-4">
+                    <div className="bg-muted p-4 rounded-full text-muted-foreground"><ShoppingBag className="h-10 w-10" /></div>
+                    <div>
+                      <h3 className="text-xl font-bold">No Incoming Orders</h3>
+                      <p className="text-muted-foreground">Orders will appear here when retailers purchase your crops.</p>
+                    </div>
+                  </div>
+                ) : (
+                  orders.map((order: any) => (
+                    <Card key={order.id} className="border-2 hover:border-primary transition-all overflow-hidden bg-white shadow-sm">
+                      <div className="flex flex-col md:flex-row">
+                        <div className="bg-primary/5 p-6 flex flex-col items-center justify-center md:border-r border-border min-w-[140px]">
+                           <div className="bg-white p-3 rounded-2xl shadow-sm mb-3">
+                             <ShoppingBag className="h-8 w-8 text-primary" />
+                           </div>
+                           <Badge variant="secondary" className="font-bold uppercase tracking-wider text-[10px]">
+                            {order.status}
+                           </Badge>
+                        </div>
+                        <div className="flex-1 p-6">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-black text-xl">{order.cropName}</h3>
+                                <Badge variant="outline" className="font-bold">{order.quantityOrdered} Kg</Badge>
+                              </div>
+                              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                                <span className="flex items-center font-medium text-muted-foreground">
+                                  <Mail className="h-4 w-4 mr-1.5 text-primary" /> 
+                                  Buyer: {order.buyerEmail?.split('@')[0]}
+                                </span>
+                                <span className="flex items-center font-medium text-muted-foreground">
+                                  <Clock className="h-4 w-4 mr-1.5 text-primary" /> 
+                                  {new Date(order.orderDate).toLocaleDateString()}
+                                </span>
+                                <span className="flex items-center font-black text-primary text-base">
+                                  <IndianRupee className="h-4 w-4 mr-1" /> 
+                                  {order.totalPrice?.toLocaleString()} Total
+                                </span>
+                              </div>
+                              {order.paymentMethod && (
+                                <div className="text-xs font-bold uppercase text-muted-foreground bg-muted inline-block px-2 py-1 rounded">
+                                  Payment: {order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Paid Online'}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                               <Button variant="outline" className="font-bold border-2">View Details</Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </Card>
                   ))
                 )}
@@ -351,12 +429,10 @@ export default function FarmerPage() {
                 </Card>
                 <Card className="border-2 bg-secondary/10">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground uppercase">Total Stock Weight</CardTitle>
+                    <CardTitle className="text-sm font-medium text-muted-foreground uppercase">Incoming Orders</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-black text-primary">
-                      {listings?.reduce((acc: number, curr: any) => acc + (curr.quantity || 0), 0).toLocaleString()} Kg
-                    </div>
+                    <div className="text-3xl font-black text-primary">{orders?.length || 0}</div>
                   </CardContent>
                 </Card>
               </div>
