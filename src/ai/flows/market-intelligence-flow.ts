@@ -1,8 +1,8 @@
 'use server';
 /**
- * @fileOverview A market intelligence AI agent specialized for Karnataka agricultural prices.
+ * @fileOverview A market intelligence AI agent specialized for Karnataka agricultural prices across multiple Mandis.
  *
- * - getMarketIntelligence - A function that estimates current crop market prices in Karnataka.
+ * - getMarketIntelligence - A function that estimates current crop market prices in multiple Karnataka locations.
  * - MarketIntelligenceInput - The input type for the function.
  * - MarketIntelligenceOutput - The return type for the function.
  */
@@ -11,22 +11,22 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
 const MarketIntelligenceInputSchema = z.object({
-  cropName: z.string().describe('The name of the crop, fruit, or vegetable (e.g., Byadgi Chilli, Alphonso Mango, Mysore Silk, Onion).'),
+  cropName: z.string().describe('The name of the crop, fruit, or vegetable (e.g., Byadgi Chilli, Alphonso Mango, Onion).'),
 });
 export type MarketIntelligenceInput = z.infer<typeof MarketIntelligenceInputSchema>;
 
 const MarketIntelligenceOutputSchema = z.object({
   cropName: z.string(),
-  location: z.string().describe('The specific Mandi or region in Karnataka (e.g., Yeshwanthpur, Hubli, Kolar).'),
-  estimatedPriceRange: z.object({
-    min: z.number().describe('Minimum price per Kg/Quintal in INR'),
-    max: z.number().describe('Maximum price per Kg/Quintal in INR'),
-    average: z.number().describe('Average price per Kg/Quintal in INR'),
-    unit: z.string().describe('The unit of measurement (e.g., Kg, Quintal, Box).'),
-  }),
-  trend: z.enum(['Rising', 'Stable', 'Falling']).describe('The current market trend in Karnataka.'),
-  insight: z.string().describe('A brief explanation of why the price is at this level in Karnataka (seasonal factors, rainfall in Western Ghats, etc.).'),
+  overallTrend: z.enum(['Rising', 'Stable', 'Falling']).describe('The overall market trend across Karnataka.'),
+  insight: z.string().describe('A summary explanation of the current market state in Karnataka.'),
   lastUpdated: z.string().describe('Relative time string like "Today" or "Yesterday".'),
+  marketRates: z.array(z.object({
+    location: z.string().describe('The specific Mandi name in Karnataka (e.g., Yeshwanthpur, Hubli, Kolar, Mysore, Davanagere).'),
+    min: z.number().describe('Minimum price in INR'),
+    max: z.number().describe('Maximum price in INR'),
+    average: z.number().describe('Average price in INR'),
+    unit: z.string().describe('The unit of measurement (e.g., Kg, Quintal).'),
+  })).describe('Estimated rates for the produce in at least 3-5 major Karnataka Mandis.'),
 });
 export type MarketIntelligenceOutput = z.infer<typeof MarketIntelligenceOutputSchema>;
 
@@ -39,16 +39,16 @@ const prompt = ai.definePrompt({
   input: { schema: MarketIntelligenceInputSchema },
   output: { schema: MarketIntelligenceOutputSchema },
   prompt: `You are an expert agricultural market analyst specializing EXCLUSIVELY in the Karnataka market (APMC/Mandi rates). 
-  Provide a realistic estimation of the current market price for the specified produce, which could be a vegetable, fruit, or commercial crop.
+  Provide a realistic estimation of the current market price for the specified produce across MULTIPLE major locations in Karnataka.
   
-  Focus on major Karnataka hubs like Yeshwanthpur, Kolar (for tomatoes), Hubli, Davanagere, or Mysore.
+  For the given produce, identify 3 to 5 key Mandis in Karnataka where it is majorly traded (e.g., Kolar for Tomatoes, Yeshwanthpur for Onions/Potatoes, Hubli for Grains, Byadgi for Chillies).
   
   Use current seasonal knowledge for Karnataka (assuming current date is March 2026).
   
   Produce: {{{cropName}}}
   Region: Karnataka, India
   
-  Provide the output in the specified JSON format. Ensure prices are accurate to current Karnataka market conditions.`,
+  Ensure prices are realistic for Karnataka's APMC standards. Provide the output in the specified JSON format.`,
 });
 
 const marketIntelligenceFlow = ai.defineFlow(

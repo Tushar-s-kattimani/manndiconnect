@@ -34,7 +34,8 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
-  Map
+  Map,
+  ArrowRight
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
@@ -404,14 +405,14 @@ export default function FarmerPage() {
           </TabsContent>
 
           <TabsContent value="market">
-            <div className="max-w-4xl mx-auto space-y-6">
+            <div className="max-w-5xl mx-auto space-y-6">
               <Card className="border-2 border-primary/20 shadow-md">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Map className="h-6 w-6 text-primary" />
-                    Karnataka Market Intelligence
+                  <CardTitle className="flex items-center gap-2 text-primary">
+                    <Map className="h-6 w-6" />
+                    Karnataka Regional Market Intelligence
                   </CardTitle>
-                  <CardDescription>Real-time Mandi rate estimations for Karnataka fruits, vegetables, and crops.</CardDescription>
+                  <CardDescription>Estimated APMC Mandi rates across major hubs in Karnataka.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex gap-2">
@@ -426,51 +427,82 @@ export default function FarmerPage() {
                       />
                     </div>
                     <Button onClick={handleCheckMarketRate} disabled={isMarketLoading || !marketSearch} className="h-11 font-bold">
-                      {isMarketLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check KA Rate"}
+                      {isMarketLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check KA Rates"}
                     </Button>
                   </div>
                 </CardContent>
               </Card>
 
               {marketData && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4">
-                  <Card className="border-2 border-primary bg-primary/5">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
-                        {marketData.location} Rate Estimation
-                      </CardTitle>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-black text-primary">₹{marketData.estimatedPriceRange.average}</span>
-                        <span className="text-sm font-medium text-muted-foreground">per {marketData.estimatedPriceRange.unit}</span>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex justify-between items-center text-sm font-medium">
-                        <span>Range: ₹{marketData.estimatedPriceRange.min} - ₹{marketData.estimatedPriceRange.max}</span>
-                        <Badge variant="outline" className="gap-1 bg-white">
-                          {marketData.trend === 'Rising' && <TrendingUp className="h-3 w-3 text-green-500" />}
-                          {marketData.trend === 'Falling' && <TrendingDown className="h-3 w-3 text-red-500" />}
-                          {marketData.trend === 'Stable' && <Minus className="h-3 w-3 text-blue-500" />}
-                          {marketData.trend}
-                        </Badge>
-                      </div>
-                      <div className="h-2 w-full bg-primary/20 rounded-full overflow-hidden">
-                        <div className="h-full bg-primary" style={{ width: '60%' }} />
-                      </div>
-                    </CardContent>
-                  </Card>
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <Card className="md:col-span-2 border-2">
+                      <CardHeader className="pb-2">
+                        <div className="flex justify-between items-center">
+                          <CardTitle className="text-lg font-black uppercase tracking-tight">Market Rates across Karnataka</CardTitle>
+                          <Badge variant="outline" className="gap-1 bg-white">
+                            {marketData.overallTrend === 'Rising' && <TrendingUp className="h-3 w-3 text-green-500" />}
+                            {marketData.overallTrend === 'Falling' && <TrendingDown className="h-3 w-3 text-red-500" />}
+                            {marketData.overallTrend === 'Stable' && <Minus className="h-3 w-3 text-blue-500" />}
+                            {marketData.overallTrend} Trend
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {marketData.marketRates.map((rate, idx) => (
+                            <div key={idx} className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border/50 hover:bg-muted/50 transition-colors">
+                              <div className="flex items-center gap-3">
+                                <div className="bg-primary/10 p-2 rounded-lg">
+                                  <MapPin className="h-4 w-4 text-primary" />
+                                </div>
+                                <div>
+                                  <p className="font-bold text-sm">{rate.location}</p>
+                                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black">Mandi Hub</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xl font-black text-primary">₹{rate.average}</p>
+                                <p className="text-[10px] font-bold text-muted-foreground">₹{rate.min}-₹{rate.max} / {rate.unit}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
 
-                  <Card className="border-2">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Karnataka Insights</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm font-medium leading-relaxed">{marketData.insight}</p>
-                      <div className="mt-4 text-[10px] text-muted-foreground flex items-center gap-1 uppercase tracking-widest font-bold">
-                        <RefreshCcw className="h-3 w-3" /> Updated {marketData.lastUpdated}
-                      </div>
-                    </CardContent>
-                  </Card>
+                    <div className="space-y-6">
+                      <Card className="border-2 bg-primary/5">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-xs font-black text-muted-foreground uppercase tracking-widest">State Insights</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm font-medium leading-relaxed">{marketData.insight}</p>
+                        </CardContent>
+                        <CardFooter className="pt-0">
+                           <div className="text-[10px] text-muted-foreground flex items-center gap-1 uppercase tracking-widest font-black">
+                            <RefreshCcw className="h-3 w-3" /> Updated {marketData.lastUpdated}
+                          </div>
+                        </CardFooter>
+                      </Card>
+
+                      <Card className="border-2">
+                         <CardHeader className="pb-2">
+                           <CardTitle className="text-xs font-black text-muted-foreground uppercase tracking-widest">Price Summary</CardTitle>
+                         </CardHeader>
+                         <CardContent className="space-y-2">
+                           <div className="flex justify-between items-center text-xs">
+                             <span className="font-bold">Lowest in KA</span>
+                             <span className="text-primary font-black">₹{Math.min(...marketData.marketRates.map(r => r.min))}</span>
+                           </div>
+                           <div className="flex justify-between items-center text-xs">
+                             <span className="font-bold">Highest in KA</span>
+                             <span className="text-primary font-black">₹{Math.max(...marketData.marketRates.map(r => r.max))}</span>
+                           </div>
+                         </CardContent>
+                      </Card>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
