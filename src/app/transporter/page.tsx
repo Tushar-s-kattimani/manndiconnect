@@ -20,7 +20,9 @@ import {
   CheckCircle2,
   Navigation,
   XCircle,
-  Check
+  Check,
+  User,
+  ShoppingBag
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
@@ -36,13 +38,13 @@ export default function TransporterPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  // Query for Available Jobs (Not yet assigned) - Global broadcast
+  // Simplified query for Available Jobs (Not yet assigned)
+  // Filtering transporterId === null locally to avoid index issues
   const availableJobsQuery = useMemoFirebase(() => {
     if (!firestore || !user || profile?.role !== 'transporter') return null;
     return query(
       collection(firestore, 'orders'), 
-      where('status', '==', 'Pending Transport'),
-      where('transporterId', '==', null)
+      where('status', '==', 'Pending Transport')
     );
   }, [firestore, user?.uid, profile?.role]);
 
@@ -98,7 +100,6 @@ export default function TransporterPage() {
   };
 
   const handleRejectJob = (jobId: string) => {
-    // Local rejection only hides it for this transporter session
     setRejectedIds(prev => [...prev, jobId]);
     toast({
       title: "Job Rejected",
@@ -124,9 +125,13 @@ export default function TransporterPage() {
     setTimeout(() => setUpdatingId(null), 800);
   };
 
-  // Filter out locally rejected jobs
+  // Filter out locally rejected jobs and ensure transporterId is actually null (unassigned)
   const displayAvailable = useMemo(() => {
-    return availableJobs?.filter(job => !rejectedIds.includes(job.id)) || [];
+    if (!availableJobs) return [];
+    return availableJobs.filter(job => 
+      !rejectedIds.includes(job.id) && 
+      (job.transporterId === null || job.transporterId === undefined)
+    );
   }, [availableJobs, rejectedIds]);
 
   if (isUserLoading || !user || !profile) {
@@ -151,30 +156,38 @@ export default function TransporterPage() {
              )}
            </div>
            <Badge variant={job.status === 'Delivered' ? "default" : "outline"} className="font-bold uppercase tracking-wider text-[10px]">
-            {job.status === 'Pending Transport' ? 'Broadcast' : job.status}
+            {job.status === 'Pending Transport' ? 'Available' : job.status}
            </Badge>
         </div>
         <div className="flex-1 p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="space-y-1">
-                   <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Load</p>
-                   <p className="font-bold text-lg">{job.cropName} ({job.quantityOrdered} Kg)</p>
-                </div>
-                <MoveRight className="h-6 w-6 text-primary/40 mx-2" />
-                <div className="space-y-1">
-                   <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Destination</p>
-                   <p className="font-bold text-lg">Marketplace Hub</p>
+              <div>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Load Details</p>
+                <div className="flex items-center gap-4">
+                  <div className="space-y-1">
+                     <p className="font-bold text-lg">{job.cropName} ({job.quantityOrdered} Kg)</p>
+                  </div>
+                  <MoveRight className="h-6 w-6 text-primary/40" />
+                  <div className="space-y-1">
+                     <p className="font-bold text-lg">Market Hub</p>
+                  </div>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-                <span className="flex items-center font-medium text-muted-foreground">
-                  <MapPin className="h-4 w-4 mr-1.5 text-primary" /> Regional Delivery
-                </span>
-                <span className="flex items-center font-black text-primary text-base">
-                  <IndianRupee className="h-4 w-4 mr-1" /> {job.totalPrice?.toLocaleString() || '0'}
-                </span>
+              
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <User className="h-4 w-4 text-primary" />
+                  <span className="font-medium">Farmer: {job.farmerName || 'Unknown'}</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <ShoppingBag className="h-4 w-4 text-primary" />
+                  <span className="font-medium">Buyer: {job.buyerName || 'Unknown'}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center font-black text-primary text-xl">
+                <IndianRupee className="h-5 w-5 mr-1" /> {job.totalPrice?.toLocaleString() || '0'}
               </div>
             </div>
             
@@ -235,7 +248,7 @@ export default function TransporterPage() {
         <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-black font-headline text-primary tracking-tight">Logistics Center</h1>
-            <p className="text-muted-foreground font-medium">Verified Transporter: <span className="text-foreground">{user.email}</span></p>
+            <p className="text-muted-foreground font-medium">Verified Transporter Portal</p>
           </div>
           <div className="bg-primary/5 px-4 py-2 rounded-xl border-2 border-primary/10">
             <span className="text-xs font-black uppercase tracking-widest text-primary block">Completed Earnings</span>
@@ -264,7 +277,7 @@ export default function TransporterPage() {
                 {displayAvailable.length === 0 ? (
                   <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed">
                     <h3 className="text-xl font-bold">No Jobs Available</h3>
-                    <p className="text-muted-foreground">Check back later for new transport requests from retailers.</p>
+                    <p className="text-muted-foreground">When retailers request transport, they will appear here for you to accept.</p>
                   </div>
                 ) : (
                   displayAvailable.map((job: any) => <JobCard key={job.id} job={job} isAvailable={true} />)
