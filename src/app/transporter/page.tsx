@@ -32,7 +32,9 @@ import {
   Check,
   User,
   ShoppingBag,
-  Phone
+  Phone,
+  Calendar,
+  Package
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
@@ -41,7 +43,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function TransporterPage() {
   const { t } = useLanguage();
-  const { user, profile, isUserLoading, refreshProfile } = useAuth();
+  const { user, profile, isUserLoading } = useAuth();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [rejectedIds, setRejectedIds] = useState<string[]>([]);
   const firestore = useFirestore();
@@ -172,20 +174,24 @@ export default function TransporterPage() {
                 <div className="flex items-center gap-4">
                   <div className="space-y-1">
                      <p className="font-bold text-lg">{job.cropName}</p>
-                     <p className="text-xs text-muted-foreground">From: Farm hub</p>
+                     <p className="text-xs text-muted-foreground flex items-center gap-1">
+                       <User className="h-3 w-3" /> {job.farmerName || 'Farmer'}
+                     </p>
                   </div>
                   <MoveRight className="h-6 w-6 text-primary/40" />
                   <div className="space-y-1">
                      <p className="font-bold text-lg">{job.deliveryAddress || 'Market Hub'}</p>
-                     <p className="text-xs text-muted-foreground">To: Destination</p>
+                     <p className="text-xs text-muted-foreground flex items-center gap-1">
+                       <User className="h-3 w-3" /> {job.buyerName || 'Retailer'}
+                     </p>
                   </div>
                 </div>
               </div>
               
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="flex items-center gap-2 text-muted-foreground">
-                  <User className="h-4 w-4 text-primary" />
-                  <span className="font-medium">Buyer: {job.buyerName || 'Unknown'}</span>
+                  <Package className="h-4 w-4 text-primary" />
+                  <span className="font-medium">{job.quantityOrdered} Kg</span>
                 </div>
                 {job.contactPhone && (
                   <div className="flex items-center gap-2 text-muted-foreground">
@@ -258,7 +264,7 @@ export default function TransporterPage() {
             {isAvailableLoading ? (
               <div className="flex items-center justify-center py-20"><Loader2 className="h-10 w-10 text-primary animate-spin" /></div>
             ) : (
-              <div className="max-w-6xl">
+              <div className="max-w-7xl">
                 {displayAvailable.length === 0 ? (
                   <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed">
                     <h3 className="text-xl font-bold">No Jobs Available</h3>
@@ -269,9 +275,9 @@ export default function TransporterPage() {
                     <Table>
                       <TableHeader className="bg-primary/5">
                         <TableRow>
-                          <TableHead className="font-bold">Crop</TableHead>
-                          <TableHead className="font-bold text-center">Weight (Kg)</TableHead>
-                          <TableHead className="font-bold">Place / Destination</TableHead>
+                          <TableHead className="font-bold">Order Detail</TableHead>
+                          <TableHead className="font-bold">Pickup From (Farmer)</TableHead>
+                          <TableHead className="font-bold">Deliver To (Retailer)</TableHead>
                           <TableHead className="font-bold">Retailer Contact</TableHead>
                           <TableHead className="font-bold">Total Fare</TableHead>
                           <TableHead className="font-bold text-right">Actions</TableHead>
@@ -280,24 +286,44 @@ export default function TransporterPage() {
                       <TableBody>
                         {displayAvailable.map((job: any) => (
                           <TableRow key={job.id} className="hover:bg-primary/5 transition-colors">
-                            <TableCell className="font-bold">{job.cropName}</TableCell>
-                            <TableCell className="text-center">{job.quantityOrdered}</TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-1">
-                                <MapPin className="h-3 w-3 text-primary" />
-                                {job.deliveryAddress || 'Regional Hub'}
+                              <div className="flex flex-col">
+                                <span className="font-bold">{job.cropName}</span>
+                                <span className="text-xs text-muted-foreground">{job.quantityOrdered} Kg</span>
                               </div>
                             </TableCell>
                             <TableCell>
+                               <div className="flex items-center gap-2">
+                                 <div className="bg-primary/10 p-1.5 rounded-lg">
+                                   <MapPin className="h-3 w-3 text-primary" />
+                                 </div>
+                                 <div className="flex flex-col">
+                                   <span className="font-medium text-sm">{job.farmerName || 'Regional Farm'}</span>
+                                   <span className="text-[10px] text-muted-foreground uppercase">Pickup Point</span>
+                                 </div>
+                               </div>
+                            </TableCell>
+                            <TableCell>
+                               <div className="flex items-center gap-2">
+                                 <div className="bg-accent/10 p-1.5 rounded-lg">
+                                   <Navigation className="h-3 w-3 text-primary" />
+                                 </div>
+                                 <div className="flex flex-col">
+                                   <span className="font-medium text-sm">{job.deliveryAddress || 'Market Hub'}</span>
+                                   <span className="text-[10px] text-muted-foreground uppercase">Destination</span>
+                                 </div>
+                               </div>
+                            </TableCell>
+                            <TableCell>
                               <div className="flex flex-col">
-                                <span className="text-xs text-muted-foreground">{job.buyerName}</span>
-                                <div className="flex items-center gap-1 font-medium">
+                                <span className="text-sm font-bold">{job.buyerName}</span>
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                   <Phone className="h-3 w-3 text-primary" />
                                   {job.contactPhone || 'No phone'}
                                 </div>
                               </div>
                             </TableCell>
-                            <TableCell className="font-black text-primary">₹{job.totalPrice?.toLocaleString()}</TableCell>
+                            <TableCell className="font-black text-primary text-lg">₹{job.totalPrice?.toLocaleString()}</TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">
                                 <Button 
