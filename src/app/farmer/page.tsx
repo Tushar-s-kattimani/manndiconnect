@@ -29,7 +29,8 @@ import {
   ShoppingBag,
   Check,
   Phone,
-  MapPin
+  MapPin,
+  Navigation
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
@@ -54,6 +55,7 @@ export default function FarmerPage() {
   
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     cropName: '',
@@ -101,6 +103,50 @@ export default function FarmerPage() {
     setIsRefreshing(true);
     await refreshProfile();
     setIsRefreshing(false);
+  };
+
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Geolocation is not supported by your browser",
+      });
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          // Use a free reverse geocoding API to get a readable address
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`
+          );
+          const data = await response.json();
+          const address = data.display_name?.split(',').slice(0, 3).join(',') || `${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`;
+          
+          setFormData(prev => ({ ...prev, location: address }));
+          toast({
+            title: "Location Found",
+            description: "Location field updated successfully.",
+          });
+        } catch (error) {
+          // Fallback to coordinates if API fails
+          setFormData(prev => ({ ...prev, location: `${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}` }));
+        } finally {
+          setIsLocating(false);
+        }
+      },
+      (error) => {
+        setIsLocating(false);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to get location. Please check permissions.",
+        });
+      }
+    );
   };
 
   const handleConfirmOrder = (orderId: string, listingId: string) => {
@@ -210,9 +256,21 @@ export default function FarmerPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Pickup Location</Label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input className="pl-10" value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} placeholder="Village, City" required />
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input className="pl-10" value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} placeholder="Village, City" required />
+                    </div>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={handleGetLocation} 
+                      disabled={isLocating}
+                      title="Auto-detect Location"
+                    >
+                      {isLocating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation className="h-4 w-4" />}
+                    </Button>
                   </div>
                 </div>
                 <Button type="submit" className="w-full h-12 text-lg font-bold mt-4">Publish Listing</Button>
