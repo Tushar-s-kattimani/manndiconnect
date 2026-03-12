@@ -1,8 +1,8 @@
 'use server';
 /**
- * @fileOverview A market intelligence AI agent for agricultural prices.
+ * @fileOverview A market intelligence AI agent specialized for Karnataka agricultural prices.
  *
- * - getMarketIntelligence - A function that estimates current crop market prices.
+ * - getMarketIntelligence - A function that estimates current crop market prices in Karnataka.
  * - MarketIntelligenceInput - The input type for the function.
  * - MarketIntelligenceOutput - The return type for the function.
  */
@@ -11,20 +11,21 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
 const MarketIntelligenceInputSchema = z.object({
-  cropName: z.string().describe('The name of the crop to check (e.g., Wheat, Basmati Rice, Tomato).'),
-  location: z.string().optional().describe('The location to check prices for (e.g., Punjab, Maharashtra).'),
+  cropName: z.string().describe('The name of the crop, fruit, or vegetable (e.g., Byadgi Chilli, Alphonso Mango, Mysore Silk, Onion).'),
 });
 export type MarketIntelligenceInput = z.infer<typeof MarketIntelligenceInputSchema>;
 
 const MarketIntelligenceOutputSchema = z.object({
   cropName: z.string(),
+  location: z.string().describe('The specific Mandi or region in Karnataka (e.g., Yeshwanthpur, Hubli, Kolar).'),
   estimatedPriceRange: z.object({
-    min: z.number().describe('Minimum price per Kg in INR'),
-    max: z.number().describe('Maximum price per Kg in INR'),
-    average: z.number().describe('Average price per Kg in INR'),
+    min: z.number().describe('Minimum price per Kg/Quintal in INR'),
+    max: z.number().describe('Maximum price per Kg/Quintal in INR'),
+    average: z.number().describe('Average price per Kg/Quintal in INR'),
+    unit: z.string().describe('The unit of measurement (e.g., Kg, Quintal, Box).'),
   }),
-  trend: z.enum(['Rising', 'Stable', 'Falling']).describe('The current market trend.'),
-  insight: z.string().describe('A brief explanation of why the price is at this level (e.g., seasonal changes, harvest reports).'),
+  trend: z.enum(['Rising', 'Stable', 'Falling']).describe('The current market trend in Karnataka.'),
+  insight: z.string().describe('A brief explanation of why the price is at this level in Karnataka (seasonal factors, rainfall in Western Ghats, etc.).'),
   lastUpdated: z.string().describe('Relative time string like "Today" or "Yesterday".'),
 });
 export type MarketIntelligenceOutput = z.infer<typeof MarketIntelligenceOutputSchema>;
@@ -37,14 +38,17 @@ const prompt = ai.definePrompt({
   name: 'marketIntelligencePrompt',
   input: { schema: MarketIntelligenceInputSchema },
   output: { schema: MarketIntelligenceOutputSchema },
-  prompt: `You are an expert agricultural market analyst in India. 
-  Provide a realistic estimation of the current market price (Mandi rate) for the specified crop. 
-  Use current seasonal knowledge (assuming current date is March 2026 as per app context).
+  prompt: `You are an expert agricultural market analyst specializing EXCLUSIVELY in the Karnataka market (APMC/Mandi rates). 
+  Provide a realistic estimation of the current market price for the specified produce, which could be a vegetable, fruit, or commercial crop.
   
-  Crop: {{{cropName}}}
-  Location: {{#if location}}{{{location}}}{{else}}General India{{/if}}
+  Focus on major Karnataka hubs like Yeshwanthpur, Kolar (for tomatoes), Hubli, Davanagere, or Mysore.
   
-  Provide the output in the specified JSON format. Ensure prices are in INR per Kilogram.`,
+  Use current seasonal knowledge for Karnataka (assuming current date is March 2026).
+  
+  Produce: {{{cropName}}}
+  Region: Karnataka, India
+  
+  Provide the output in the specified JSON format. Ensure prices are accurate to current Karnataka market conditions.`,
 });
 
 const marketIntelligenceFlow = ai.defineFlow(

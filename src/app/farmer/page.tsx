@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -34,7 +33,8 @@ import {
   Search,
   TrendingUp,
   TrendingDown,
-  Minus
+  Minus,
+  Map
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
@@ -188,7 +188,7 @@ export default function FarmerPage() {
     if (!marketSearch) return;
     setIsMarketLoading(true);
     try {
-      const data = await getMarketIntelligence({ cropName: marketSearch, location: profile?.location });
+      const data = await getMarketIntelligence({ cropName: marketSearch });
       setMarketData(data);
     } catch (error) {
       toast({
@@ -306,7 +306,7 @@ export default function FarmerPage() {
           <TabsList className="grid w-full grid-cols-4 mb-8 max-w-[800px]">
             <TabsTrigger value="grid" className="gap-2 font-bold"><LayoutGrid className="h-4 w-4" /> Listings</TabsTrigger>
             <TabsTrigger value="orders" className="gap-2 font-bold"><Package className="h-4 w-4" /> Orders</TabsTrigger>
-            <TabsTrigger value="market" className="gap-2 font-bold"><TrendingUp className="h-4 w-4" /> Market Rates</TabsTrigger>
+            <TabsTrigger value="market" className="gap-2 font-bold"><Map className="h-4 w-4" /> KA Market Rates</TabsTrigger>
             <TabsTrigger value="stats" className="gap-2 font-bold"><BarChart3 className="h-4 w-4" /> Analytics</TabsTrigger>
           </TabsList>
 
@@ -408,17 +408,17 @@ export default function FarmerPage() {
               <Card className="border-2 border-primary/20 shadow-md">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-6 w-6 text-primary" />
-                    Market Intelligence
+                    <Map className="h-6 w-6 text-primary" />
+                    Karnataka Market Intelligence
                   </CardTitle>
-                  <CardDescription>Get AI-powered Mandi rate estimations for any crop.</CardDescription>
+                  <CardDescription>Real-time Mandi rate estimations for Karnataka fruits, vegetables, and crops.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input 
-                        placeholder="Search crop name (e.g. Wheat, Basmati Rice)..." 
+                        placeholder="Search produce (e.g. Byadgi Chilli, Mango, Onion)..." 
                         className="pl-10 h-11"
                         value={marketSearch}
                         onChange={(e) => setMarketSearch(e.target.value)}
@@ -426,7 +426,7 @@ export default function FarmerPage() {
                       />
                     </div>
                     <Button onClick={handleCheckMarketRate} disabled={isMarketLoading || !marketSearch} className="h-11 font-bold">
-                      {isMarketLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check Rate"}
+                      {isMarketLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check KA Rate"}
                     </Button>
                   </div>
                 </CardContent>
@@ -436,10 +436,12 @@ export default function FarmerPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4">
                   <Card className="border-2 border-primary bg-primary/5">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Estimated Mandi Rate</CardTitle>
+                      <CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
+                        {marketData.location} Rate Estimation
+                      </CardTitle>
                       <div className="flex items-baseline gap-2">
                         <span className="text-4xl font-black text-primary">₹{marketData.estimatedPriceRange.average}</span>
-                        <span className="text-sm font-medium text-muted-foreground">per Kg</span>
+                        <span className="text-sm font-medium text-muted-foreground">per {marketData.estimatedPriceRange.unit}</span>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -460,7 +462,7 @@ export default function FarmerPage() {
 
                   <Card className="border-2">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Market Insights</CardTitle>
+                      <CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Karnataka Insights</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <p className="text-sm font-medium leading-relaxed">{marketData.insight}</p>
