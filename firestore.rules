@@ -9,12 +9,6 @@ service cloud.firestore {
      * Philosophy: Prototyping Mode.
      * This ruleset enforces strict authorization based on user roles and document ownership 
      * while remaining flexible on the specific data schema to allow for rapid iteration.
-     * 
-     * Data Structure:
-     * - /users/{userId}: Primary user profiles for Farmers, Retailers, and Transporters.
-     * - /listings/{listingId}: Crop listings created by Farmers, viewable by all authenticated users.
-     * - /orders/{orderId}: Shared transactional documents involving a Farmer, Buyer (Retailer), and Transporter.
-     * - /users/{userId}/syncQueue/{queueId}: Private user-specific operation logs for offline synchronization.
      */
 
     // --- Helper Functions ---
@@ -27,15 +21,6 @@ service cloud.firestore {
     /** @description Checks if the authenticated user matches the provided userId. */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
-    }
-
-    /** @description Checks if the authenticated user is a participant in an order. */
-    function isOrderParticipant(data) {
-      return isSignedIn() && (
-        request.auth.uid == data.farmerId || 
-        request.auth.uid == data.buyerId || 
-        data.get('transporterId', null) == request.auth.uid
-      );
     }
 
     // --- Collection Rules ---
@@ -69,15 +54,34 @@ service cloud.firestore {
 
     /**
      * @description Shared order documents. Accessible by the specific farmer, buyer, and transporter involved.
-     * Updated to allow transporters to potentially browse 'available' orders in the future, 
-     * but strictly enforces participant listing for security.
+     * Rules updated for robustness and clear query-level list support.
      */
     match /orders/{orderId} {
-      // For listing, Firestore requires the query to be filtered by one of these IDs to match this rule.
-      allow get, list: if isOrderParticipant(resource.data) || (isSignedIn() && !('transporterId' in resource.data));
-      allow create: if isSignedIn() && (request.resource.data.buyerId == request.auth.uid || request.resource.data.farmerId == request.auth.uid);
-      allow update: if resource != null && (isOrderParticipant(resource.data) || (isSignedIn() && !('transporterId' in resource.data))) && request.resource.data.buyerId == resource.data.buyerId && request.resource.data.farmerId == resource.data.farmerId;
-      allow delete: if resource != null && (request.auth.uid == resource.data.buyerId || request.auth.uid == resource.data.farmerId);
+      allow read: if isSignedIn() && (
+        resource.data.farmerId == request.auth.uid || 
+        resource.data.buyerId == request.auth.uid || 
+        resource.data.get('transporterId', null) == request.auth.uid ||
+        resource.data.get('transporterId', null) == null
+      );
+      
+      allow create: if isSignedIn() && (
+        request.resource.data.buyerId == request.auth.uid || 
+        request.resource.data.farmerId == request.auth.uid
+      );
+      
+      allow update: if resource != null && (
+        resource.data.farmerId == request.auth.uid || 
+        resource.data.buyerId == request.auth.uid || 
+        resource.data.get('transporterId', null) == request.auth.uid ||
+        resource.data.get('transporterId', null) == null
+      ) && 
+      request.resource.data.buyerId == resource.data.buyerId && 
+      request.resource.data.farmerId == resource.data.farmerId;
+
+      allow delete: if resource != null && (
+        request.auth.uid == resource.data.buyerId || 
+        request.auth.uid == resource.data.farmerId
+      );
     }
   }
 }

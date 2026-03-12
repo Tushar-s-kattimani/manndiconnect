@@ -15,21 +15,22 @@ import { collection, query, orderBy, where } from 'firebase/firestore';
 
 export default function TransporterPage() {
   const { t } = useLanguage();
-  const { user, isUserLoading, refreshProfile, logout } = useAuth();
+  const { user, profile, isUserLoading, refreshProfile, logout } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const firestore = useFirestore();
   const router = useRouter();
 
   // Query for transport-related orders (jobs assigned to this transporter)
   // We filter by transporterId to satisfy Firestore Security Rules for listing.
+  // We also ensure the profile and role are loaded to prevent unauthorized broad queries.
   const jobsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user || profile?.role !== 'transporter') return null;
     return query(
       collection(firestore, 'orders'), 
       where('transporterId', '==', user.uid),
       orderBy('orderDate', 'desc')
     );
-  }, [firestore, user?.uid]);
+  }, [firestore, user?.uid, profile?.role]);
 
   const { data: jobs, isLoading: isDataLoading } = useCollection(jobsQuery);
 
