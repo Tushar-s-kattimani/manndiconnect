@@ -10,9 +10,6 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-// Increase timeout for server action to handle slower mobile networks (max for Hobby plan on Vercel is 60s)
-export const maxDuration = 60;
-
 const MarketIntelligenceInputSchema = z.object({
   cropName: z.string().describe('The name of the crop, fruit, or vegetable (e.g., Byadgi Chilli, Alphonso Mango, Onion).'),
 });
