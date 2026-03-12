@@ -3,19 +3,22 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, doc, serverTimestamp } from 'firebase/firestore';
+import { useUser, useFirestore } from '@/firebase';
+import { useAuth } from '@/components/AuthContext';
+import { doc, serverTimestamp } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 interface Listing {
   id: string;
   cropName: string;
   quantity: number;
-  price: number;
-  status: 'pending' | 'synced';
+  pricePerUnit: number;
+  status: 'Available' | 'Sold' | 'pending';
   farmerId: string;
   farmerEmail: string;
+  farmerName: string;
   createdAt: any;
+  updatedAt: any;
 }
 
 interface OfflineContextType {
@@ -29,6 +32,7 @@ const OfflineContext = createContext<OfflineContextType | undefined>(undefined);
 
 export function OfflineProvider({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
+  const { profile } = useAuth();
   const firestore = useFirestore();
   const [isOffline, setIsOffline] = useState(false);
   const [unsyncedListings, setUnsyncedListings] = useState<Listing[]>([]);
@@ -42,7 +46,6 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener('offline', handleOffline);
     setIsOffline(!navigator.onLine);
 
-    // Load unsynced from localStorage if user is logged in
     if (user) {
       const saved = localStorage.getItem(`farmlink_unsynced_${user.uid}`);
       if (saved) setUnsyncedListings(JSON.parse(saved));
@@ -65,7 +68,8 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       pricePerUnit: parseFloat(data.price),
       status: 'Available',
       farmerId: user.uid,
-      farmerEmail: user.email,
+      farmerEmail: user.email || '',
+      farmerName: profile?.name || user.email?.split('@')[0] || 'Farmer',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -79,7 +83,6 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
         description: "Listing will sync when you are back online.",
       });
     } else {
-      // Direct write to firestore
       const docRef = doc(firestore, 'listings', listingId);
       setDocumentNonBlocking(docRef, {
         ...newListing,

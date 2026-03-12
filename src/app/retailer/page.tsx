@@ -15,27 +15,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { 
   Search, 
-  Filter, 
   IndianRupee, 
   Weight, 
-  MapPin, 
-  Star, 
   Mail, 
   RefreshCcw, 
   Loader2, 
-  Lock, 
   Sprout,
   Leaf,
   Truck,
   CreditCard,
   Banknote,
   ShoppingBag,
-  Clock,
-  LayoutGrid
+  LayoutGrid,
+  User,
+  MapPin
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, orderBy, doc, serverTimestamp, where } from 'firebase/firestore';
+import { collection, query, doc, serverTimestamp, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 const CropSymbol = ({ name, className }: { name: string; className?: string }) => {
@@ -62,6 +59,7 @@ export default function RetailerPage() {
 
   const marketplaceQuery = useMemoFirebase(() => {
     if (!firestore || !user || !profile || profile.role !== 'retailer') return null;
+    // Fetch ALL available listings across all farmers
     return query(
       collection(firestore, 'listings'), 
       where('status', '==', 'Available')
@@ -106,8 +104,10 @@ export default function RetailerPage() {
       listingId: selectedListing.id,
       farmerId: selectedListing.farmerId,
       farmerEmail: selectedListing.farmerEmail || '',
+      farmerName: selectedListing.farmerName || 'Farmer',
       buyerId: user.uid,
       buyerEmail: user.email,
+      buyerName: profile?.name || user.email?.split('@')[0],
       cropName: selectedListing.cropName,
       quantityOrdered: selectedListing.quantity,
       agreedPricePerUnit: selectedListing.pricePerUnit,
@@ -146,8 +146,10 @@ export default function RetailerPage() {
       listingId: listing.id,
       farmerId: listing.farmerId,
       farmerEmail: listing.farmerEmail || '',
+      farmerName: listing.farmerName || 'Farmer',
       buyerId: user.uid,
       buyerEmail: user.email,
+      buyerName: profile?.name || user.email?.split('@')[0],
       cropName: listing.cropName,
       quantityOrdered: listing.quantity,
       agreedPricePerUnit: listing.pricePerUnit,
@@ -254,20 +256,30 @@ export default function RetailerPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {filteredListings.length === 0 ? (
                      <div className="col-span-full py-20 text-center bg-white rounded-3xl border-2 border-dashed">
-                      <p className="text-muted-foreground font-bold">No crops available.</p>
+                      <p className="text-muted-foreground font-bold">No crops available in the marketplace.</p>
                     </div>
                   ) : (
                     filteredListings.map((listing: any) => (
                       <Card key={listing.id} className="overflow-hidden group hover:shadow-xl transition-all border-2 flex flex-col bg-white">
                         <div className="relative h-32 w-full bg-primary/5 flex items-center justify-center">
                           <CropSymbol name={listing.cropName} className="h-10 w-10 text-primary" />
+                          <div className="absolute top-2 right-2">
+                             <Badge variant="secondary" className="bg-white/90 backdrop-blur-sm font-bold text-[10px] gap-1">
+                               <User className="h-2 w-2" /> {listing.farmerName || 'Farmer'}
+                             </Badge>
+                          </div>
                         </div>
                         <CardHeader className="p-4 pb-0">
                           <CardTitle className="text-lg mb-1 font-bold">{listing.cropName}</CardTitle>
                           <span className="text-xl font-black text-primary">₹{listing.pricePerUnit}/kg</span>
                         </CardHeader>
-                        <CardContent className="p-4 pt-2">
-                          <Badge variant="outline" className="font-bold">{listing.quantity} Kg Available</Badge>
+                        <CardContent className="p-4 pt-2 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Badge variant="outline" className="font-bold">{listing.quantity} Kg Available</Badge>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                             <MapPin className="h-2 w-2" /> Regional Farm Hub
+                          </div>
                         </CardContent>
                         <CardFooter className="p-4 pt-0 flex flex-col gap-2">
                           <Button onClick={() => handleBuyNowClick(listing)} className="w-full font-bold h-10 shadow-sm">Buy Now</Button>
@@ -300,17 +312,31 @@ export default function RetailerPage() {
                     </div>
                   ) : (
                     orders.map((order: any) => (
-                      <Card key={order.id} className="border-2 bg-white shadow-sm">
+                      <Card key={order.id} className="border-2 bg-white shadow-sm hover:shadow-md transition-shadow">
                         <CardHeader>
                           <div className="flex justify-between items-center">
                             <CardTitle className="text-xl font-black">{order.cropName}</CardTitle>
-                            <Badge>{order.status}</Badge>
+                            <Badge variant={order.status === 'Paid' || order.status === 'Delivered' ? 'default' : 'secondary'}>
+                              {order.status}
+                            </Badge>
                           </div>
-                          <CardDescription>{order.quantityOrdered} Kg ordered on {new Date(order.orderDate).toLocaleDateString()}</CardDescription>
+                          <CardDescription>
+                            {order.quantityOrdered} Kg ordered on {new Date(order.orderDate).toLocaleDateString()}
+                            <br />
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase">Seller: {order.farmerName || order.farmerEmail}</span>
+                          </CardDescription>
                         </CardHeader>
-                        <CardContent>
-                          <p className="font-bold text-primary">Total: ₹{order.totalPrice?.toLocaleString()}</p>
-                          {order.paymentMethod && <p className="text-xs text-muted-foreground uppercase">Payment: {order.paymentMethod}</p>}
+                        <CardContent className="space-y-2">
+                          <div className="flex items-center justify-between bg-primary/5 p-3 rounded-lg">
+                             <span className="font-bold">Total Amount</span>
+                             <span className="font-black text-primary text-xl">₹{order.totalPrice?.toLocaleString()}</span>
+                          </div>
+                          {order.paymentMethod && (
+                            <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase">
+                              {order.paymentMethod === 'online' ? <CreditCard className="h-3 w-3" /> : <Banknote className="h-3 w-3" />}
+                              Payment: {order.paymentMethod === 'online' ? 'Paid Online' : 'Cash on Delivery'}
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     ))
@@ -325,29 +351,36 @@ export default function RetailerPage() {
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle className="text-2xl font-black">Complete Purchase</DialogTitle>
+              <DialogDescription>
+                Buying <strong>{selectedListing?.quantity}Kg</strong> of {selectedListing?.cropName} from {selectedListing?.farmerName}
+              </DialogDescription>
             </DialogHeader>
             <div className="py-4 space-y-6">
-              <div className="bg-primary/5 p-4 rounded-xl border border-primary/10">
+              <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex justify-between items-center">
+                <span className="font-bold text-muted-foreground">Total Price</span>
                 <p className="text-2xl font-black text-primary">₹{(selectedListing?.quantity * selectedListing?.pricePerUnit).toLocaleString()}</p>
               </div>
-              <RadioGroup defaultValue="cod" value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as 'cod' | 'online')}>
-                <div className="grid gap-4">
-                  <Label htmlFor="cod" className="flex items-center justify-between rounded-xl border-2 p-4 cursor-pointer">
-                    <div className="flex items-center gap-3">
-                      <Banknote className="h-5 w-5 text-primary" />
-                      <p className="font-bold">Cash on Delivery</p>
-                    </div>
-                    <RadioGroupItem value="cod" id="cod" />
-                  </Label>
-                  <Label htmlFor="online" className="flex items-center justify-between rounded-xl border-2 p-4 cursor-pointer">
-                    <div className="flex items-center gap-3">
-                      <CreditCard className="h-5 w-5 text-primary" />
-                      <p className="font-bold">Pay Online</p>
-                    </div>
-                    <RadioGroupItem value="online" id="online" />
-                  </Label>
-                </div>
-              </RadioGroup>
+              <div className="space-y-3">
+                <Label className="font-bold text-sm">Select Payment Method</Label>
+                <RadioGroup defaultValue="cod" value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as 'cod' | 'online')}>
+                  <div className="grid gap-4">
+                    <Label htmlFor="cod" className="flex items-center justify-between rounded-xl border-2 p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <Banknote className="h-5 w-5 text-primary" />
+                        <p className="font-bold text-sm">Cash on Delivery</p>
+                      </div>
+                      <RadioGroupItem value="cod" id="cod" />
+                    </Label>
+                    <Label htmlFor="online" className="flex items-center justify-between rounded-xl border-2 p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <CreditCard className="h-5 w-5 text-primary" />
+                        <p className="font-bold text-sm">Pay Online</p>
+                      </div>
+                      <RadioGroupItem value="online" id="online" />
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
             </div>
             <DialogFooter>
               <Button onClick={handlePlaceOrder} className="w-full h-12 text-lg font-bold" disabled={isPlacingOrder}>
