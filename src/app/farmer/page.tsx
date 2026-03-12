@@ -187,24 +187,19 @@ export default function FarmerPage() {
 
   const handleCheckMarketRate = async () => {
     const trimmedSearch = marketSearch.trim();
-    if (!trimmedSearch) {
-      toast({
-        title: "Empty Search",
-        description: "Please enter a crop name to check rates.",
-      });
-      return;
-    }
+    if (!trimmedSearch) return;
 
     setIsMarketLoading(true);
     try {
+      // Small artificial delay to show user it's working on mobile
       const data = await getMarketIntelligence({ cropName: trimmedSearch });
       setMarketData(data);
     } catch (error: any) {
       console.error('Market Search Error:', error);
       toast({
         variant: "destructive",
-        title: "Connection Error",
-        description: "Could not fetch market insights. This may be due to a slow network or high server load. Please try again.",
+        title: "Slow Connection",
+        description: error.message || "Failed to fetch market insights. Please try again on a better network.",
       });
     } finally {
       setIsMarketLoading(false);
@@ -313,10 +308,10 @@ export default function FarmerPage() {
         </div>
 
         <Tabs defaultValue="grid" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8 max-w-[800px]">
+          <TabsList className="grid w-full grid-cols-4 mb-8 max-w-[800px] overflow-x-auto">
             <TabsTrigger value="grid" className="gap-2 font-bold"><LayoutGrid className="h-4 w-4" /> Listings</TabsTrigger>
             <TabsTrigger value="orders" className="gap-2 font-bold"><Package className="h-4 w-4" /> Orders</TabsTrigger>
-            <TabsTrigger value="market" className="gap-2 font-bold"><Map className="h-4 w-4" /> KA Market Rates</TabsTrigger>
+            <TabsTrigger value="market" className="gap-2 font-bold"><Map className="h-4 w-4" /> KA Market</TabsTrigger>
             <TabsTrigger value="stats" className="gap-2 font-bold"><BarChart3 className="h-4 w-4" /> Analytics</TabsTrigger>
           </TabsList>
 
@@ -398,12 +393,6 @@ export default function FarmerPage() {
                               Confirm Order
                             </Button>
                           )}
-                          
-                          {order.status === 'Accepted' && (
-                            <div className="bg-primary/10 text-primary px-4 py-2 rounded-lg flex items-center gap-2 font-bold">
-                              <CheckCircle2 className="h-5 w-5" /> Confirmed
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -421,14 +410,14 @@ export default function FarmerPage() {
                     <Map className="h-6 w-6" />
                     Karnataka Regional Market Intelligence
                   </CardTitle>
-                  <CardDescription>Estimated Mandi rates across 5-8 major hubs in Karnataka.</CardDescription>
+                  <CardDescription>Estimated Mandi rates across major hubs in Karnataka.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <div className="relative flex-1">
                       <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input 
-                        placeholder="Search produce (e.g. Tomato, Byadgi Chilli, Onion, Rice)..." 
+                        placeholder="e.g. Tomato, Byadgi Chilli, Onion..." 
                         className="pl-10 h-11"
                         value={marketSearch}
                         onChange={(e) => setMarketSearch(e.target.value)}
@@ -436,7 +425,12 @@ export default function FarmerPage() {
                       />
                     </div>
                     <Button onClick={handleCheckMarketRate} disabled={isMarketLoading || !marketSearch.trim()} className="h-11 font-bold">
-                      {isMarketLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check KA Rates"}
+                      {isMarketLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" /> 
+                          <span className="animate-pulse">Analyzing...</span>
+                        </>
+                      ) : "Check KA Rates"}
                     </Button>
                   </div>
                 </CardContent>
@@ -493,22 +487,6 @@ export default function FarmerPage() {
                             <RefreshCcw className="h-3 w-3" /> Updated {marketData.lastUpdated}
                           </div>
                         </CardFooter>
-                      </Card>
-
-                      <Card className="border-2">
-                         <CardHeader className="pb-2">
-                           <CardTitle className="text-xs font-black text-muted-foreground uppercase tracking-widest">Price Summary</CardTitle>
-                         </CardHeader>
-                         <CardContent className="space-y-2">
-                           <div className="flex justify-between items-center text-xs">
-                             <span className="font-bold">Lowest in KA</span>
-                             <span className="text-primary font-black">₹{Math.min(...marketData.marketRates.map(r => r.min))}</span>
-                           </div>
-                           <div className="flex justify-between items-center text-xs">
-                             <span className="font-bold">Highest in KA</span>
-                             <span className="text-primary font-black">₹{Math.max(...marketData.marketRates.map(r => r.max))}</span>
-                           </div>
-                         </CardContent>
                       </Card>
                     </div>
                   </div>

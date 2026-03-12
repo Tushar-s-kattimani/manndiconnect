@@ -10,7 +10,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-// Increase timeout for server action to handle slower mobile networks
+// Increase timeout for server action to handle slower mobile networks (max for Hobby plan on Vercel is 60s)
 export const maxDuration = 60;
 
 const MarketIntelligenceInputSchema = z.object({
@@ -37,8 +37,9 @@ export async function getMarketIntelligence(input: MarketIntelligenceInput): Pro
   try {
     return await marketIntelligenceFlow(input);
   } catch (error) {
-    console.error('Market Intelligence Error:', error);
-    throw error;
+    // Log the error for internal monitoring but throw to the client
+    console.error('Market Intelligence Server Error:', error);
+    throw new Error('Market Intelligence service is currently taking longer than expected. Please check your connection and try again.');
   }
 }
 
@@ -47,7 +48,7 @@ const prompt = ai.definePrompt({
   input: { schema: MarketIntelligenceInputSchema },
   output: { schema: MarketIntelligenceOutputSchema },
   config: {
-    // Relax safety settings to avoid false positives with agricultural terms
+    // Relax safety settings to avoid false positives with agricultural terms which can happen on mobile API calls
     safetySettings: [
       { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
       { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
@@ -58,14 +59,18 @@ const prompt = ai.definePrompt({
   prompt: `You are an expert agricultural market analyst specializing EXCLUSIVELY in the Karnataka market (APMC/Mandi rates). 
   Provide a realistic estimation of the current market price for the specified produce across MULTIPLE major locations in Karnataka.
   
-  For the given produce, identify 5 to 8 key Mandis in Karnataka where it is majorly traded (e.g., Kolar for Tomatoes, Yeshwanthpur for Onions/Potatoes, Hubli for Grains, Byadgi for Chillies, Mysore for Fruits).
+  For the given produce, identify 5 to 8 key Mandis in Karnataka where it is majorly traded (e.g., Kolar for Tomatoes, Yeshwanthpur for Onions/Potatoes, Hubli for Grains, Byadgi for Chillies, Mysore for Fruits, Davanagere for Maize).
   
   Use current seasonal knowledge for Karnataka (assuming current date is March 2026).
   
   Produce: {{{cropName}}}
   Region: Karnataka, India
   
-  Ensure prices are realistic for Karnataka's APMC standards. Rates should generally be per Kg for vegetables/fruits and per Quintal for grains where standard, but specify clearly. Provide the output in the specified JSON format.`,
+  Requirements:
+  1. Rates MUST be realistic for Karnataka's APMC standards.
+  2. Specify rates clearly (e.g., per Kg for vegetables/fruits, per Quintal for grains).
+  3. Include at least 5 major Mandis.
+  4. Provide a helpful insight about the price trend in Karnataka.`,
 });
 
 const marketIntelligenceFlow = ai.defineFlow(
@@ -77,7 +82,7 @@ const marketIntelligenceFlow = ai.defineFlow(
   async (input) => {
     const { output } = await prompt(input);
     if (!output) {
-      throw new Error('The AI model was unable to generate a response. This might be due to safety filters or a temporary service issue.');
+      throw new Error('AI could not generate insights. Please try a different crop name.');
     }
     return output;
   }
